@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://orbiteus.com">
-    <img src="docs/assets/symbol-readme.svg" alt="Orbiteus" width="320" />
+    <img src="docs/assets/symbol-readme.svg" alt="Orbiteus" width="160" />
   </a>
 </div>
 
