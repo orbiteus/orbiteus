@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ### Added
 
 - `CONTRIBUTING.md` — contribution guide aligned with monorepo layout and spec-first modules
+- `SECURITY.md` — coordinated vulnerability disclosure policy for GitHub Security tab
 
 ---
 

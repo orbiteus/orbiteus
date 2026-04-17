@@ -394,6 +394,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for branch conventions, spec-first workfl
 
 ---
 
+## Security
+
+See [SECURITY.md](SECURITY.md) for how to report vulnerabilities privately and what is in scope.
+
+---
+
 ## License
 
 MIT
