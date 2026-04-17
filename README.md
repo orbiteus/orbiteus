@@ -388,6 +388,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full specification.
 
 ---
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branch conventions, spec-first workflow, and how to run tests.
+
+---
+
 ## License
 
 MIT

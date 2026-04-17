@@ -8,6 +8,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `CONTRIBUTING.md` — contribution guide aligned with monorepo layout and spec-first modules
+
 ---
 
 ## [0.1.0] — 2026-04-16
