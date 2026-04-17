@@ -1,13 +1,7 @@
 <div align="center">
-  <table>
-    <tr>
-      <td align="center" bgcolor="#ffffff" style="padding: 20px 40px;">
-        <a href="https://orbiteus.com">
-          <img src="admin-ui/public/branding/logo.svg" alt="Orbiteus" width="280" />
-        </a>
-      </td>
-    </tr>
-  </table>
+  <a href="https://orbiteus.com">
+    <img src="docs/assets/logo-readme.svg" alt="Orbiteus" width="640" />
+  </a>
 </div>
 
 # Orbiteus — AI-Native, Composable ERP/CRM Engine
