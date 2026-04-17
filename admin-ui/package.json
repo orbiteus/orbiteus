@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
+  "homepage": "https://orbiteus.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/orbiteus/orbiteus.git"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
