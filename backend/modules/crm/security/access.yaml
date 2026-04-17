@@ -1,0 +1,81 @@
+# CRM module – access rights and record rules
+# Format: see orbiteus_core/security_loader.py for full schema documentation
+
+access:
+  # -------------------------------------------------------------------
+  # CRM Manager – full access to all CRM models
+  # -------------------------------------------------------------------
+  - name: crm_manager_customer
+    role: crm.group_crm_manager
+    model: crm.customer
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: crm_manager_opportunity
+    role: crm.group_crm_manager
+    model: crm.opportunity
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: crm_manager_pipeline
+    role: crm.group_crm_manager
+    model: crm.pipeline
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: crm_manager_stage
+    role: crm.group_crm_manager
+    model: crm.stage
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  # -------------------------------------------------------------------
+  # CRM User (salesman) – create/edit, no delete, own records only
+  # -------------------------------------------------------------------
+  - name: crm_user_customer
+    role: crm.group_crm_user
+    model: crm.customer
+    read: true
+    write: true
+    create: true
+    delete: false
+
+  - name: crm_user_opportunity
+    role: crm.group_crm_user
+    model: crm.opportunity
+    read: true
+    write: true
+    create: true
+    delete: false
+
+  - name: crm_user_pipeline
+    role: crm.group_crm_user
+    model: crm.pipeline
+    read: true       # read-only – salesmen can see pipelines but not edit
+    write: false
+    create: false
+    delete: false
+
+  - name: crm_user_stage
+    role: crm.group_crm_user
+    model: crm.stage
+    read: true       # read-only – salesmen can see stages
+    write: false
+    create: false
+    delete: false
+
+record_rules:
+  # Salesman sees only opportunities assigned to them
+  - name: crm_opportunity_own_only
+    model: crm.opportunity
+    roles: [crm.group_crm_user]
+    domain: "[('assigned_user_id', '=', 'current_user')]"
+    global: false

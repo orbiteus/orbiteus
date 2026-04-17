@@ -1,0 +1,123 @@
+# Base module – default system access rights
+# Superadmin bypass is enforced in rbac.py (is_superadmin flag) — no need to declare here.
+
+access:
+  # -------------------------------------------------------------------
+  # System admin group – full access to all system/ir_* objects
+  # -------------------------------------------------------------------
+  - name: system_tenant
+    role: base.group_system
+    model: base.tenant
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_company
+    role: base.group_system
+    model: base.company
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_partner
+    role: base.group_system
+    model: base.partner
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_user
+    role: base.group_system
+    model: base.user
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_model
+    role: base.group_system
+    model: base.ir-model
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_model_field
+    role: base.group_system
+    model: base.ir-model-field
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_model_access
+    role: base.group_system
+    model: base.ir-model-access
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_rule
+    role: base.group_system
+    model: base.ir-rule
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_ui_menu
+    role: base.group_system
+    model: base.ir-ui-menu
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_sequence
+    role: base.group_system
+    model: base.ir-sequence
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_config_param
+    role: base.group_system
+    model: base.ir-config-param
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ir_cron
+    role: base.group_system
+    model: base.ir-cron
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  # -------------------------------------------------------------------
+  # Regular user – read-only on basic shared objects
+  # -------------------------------------------------------------------
+  - name: user_partner_readonly
+    role: base.group_user
+    model: base.partner
+    read: true
+    write: false
+    create: false
+    delete: false
+
+  - name: user_company_readonly
+    role: base.group_user
+    model: base.company
+    read: true
+    write: false
+    create: false
+    delete: false
+
+record_rules: []

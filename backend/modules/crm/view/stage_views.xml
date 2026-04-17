@@ -1,0 +1,33 @@
+<views>
+
+  <view name="crm.stage.list" model="crm.stage" type="list" priority="16">
+    <list>
+      <field name="name" string="Stage"/>
+      <field name="pipeline_id" string="Pipeline" widget="many2one"/>
+      <field name="sequence" string="Sequence"/>
+      <field name="probability" string="Probability"/>
+      <field name="is_won" string="Won"/>
+      <field name="is_lost" string="Lost"/>
+      <field name="fold" string="Fold"/>
+    </list>
+  </view>
+
+  <view name="crm.stage.form" model="crm.stage" type="form" priority="16">
+    <form>
+      <sheet>
+        <group string="Stage">
+          <field name="name" required="1" string="Stage Name"/>
+          <field name="pipeline_id" required="1" string="Pipeline" widget="many2one"/>
+          <field name="sequence" string="Sequence"/>
+          <field name="probability" string="Win Probability"/>
+        </group>
+        <group string="Behavior">
+          <field name="is_won" string="Won Stage"/>
+          <field name="is_lost" string="Lost Stage"/>
+          <field name="fold" string="Fold in Kanban"/>
+        </group>
+      </sheet>
+    </form>
+  </view>
+
+</views>

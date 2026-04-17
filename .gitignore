@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.uv/
+
+# Environment
+.env
+*.env.local
+
+# Alembic
+migrations/versions/*.py
+!migrations/versions/.gitkeep
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+postgres_data/
+
+# Logs
+*.log
+admin-ui/.next/
+admin-ui/next-env.d.ts
+admin-ui/package-lock.json
+admin-ui/tsconfig.tsbuildinfo
+backend/.venv/
+memory/
+.claude/
+.cursor/

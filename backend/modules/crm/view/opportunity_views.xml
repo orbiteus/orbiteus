@@ -1,0 +1,97 @@
+<views>
+
+  <!-- Opportunity list view -->
+  <view name="crm.opportunity.list" model="crm.opportunity" type="list" priority="16">
+    <list>
+      <field name="name" string="Title"/>
+      <field name="customer_id" string="Customer" widget="many2one"/>
+      <field name="stage_id" string="Stage" widget="many2one"/>
+      <field name="expected_revenue" string="Expected Revenue" widget="monetary"/>
+      <field name="probability" string="Probability" widget="percentage"/>
+      <field name="close_date" string="Close Date"/>
+      <field name="assigned_user_id" string="Salesperson" widget="many2one"/>
+    </list>
+  </view>
+
+  <!-- Opportunity kanban view -->
+  <view name="crm.opportunity.kanban" model="crm.opportunity" type="kanban" priority="16">
+    <kanban group_by="stage_id" quick_create="1">
+      <field name="name"/>
+      <field name="customer_id"/>
+      <field name="expected_revenue"/>
+      <field name="probability"/>
+      <field name="assigned_user_id"/>
+      <templates>
+        <t t-name="kanban-card">
+          <div class="kanban-card">
+            <strong><field name="name"/></strong>
+            <div><field name="customer_id"/></div>
+            <div><field name="expected_revenue"/> · <field name="probability"/>%</div>
+            <footer>
+              <field name="assigned_user_id" widget="avatar"/>
+            </footer>
+          </div>
+        </t>
+      </templates>
+    </kanban>
+  </view>
+
+  <!-- Opportunity form view -->
+  <view name="crm.opportunity.form" model="crm.opportunity" type="form" priority="16">
+    <form>
+      <header>
+        <field name="stage_id" widget="statusbar"/>
+      </header>
+      <sheet>
+        <group string="Opportunity">
+          <field name="name" required="1" string="Title"/>
+          <field name="customer_id" string="Customer" widget="many2one"/>
+          <field name="pipeline_id" string="Pipeline" widget="many2one"/>
+          <field name="assigned_user_id" string="Salesperson" widget="many2one"/>
+        </group>
+        <group string="Forecast">
+          <field name="expected_revenue" string="Expected Revenue" widget="monetary"/>
+          <field name="probability" string="Probability" widget="percentage"/>
+          <field name="close_date" string="Expected Close"/>
+        </group>
+        <notebook>
+          <page string="Notes">
+            <field name="notes" widget="html" nolabel="1"/>
+          </page>
+        </notebook>
+      </sheet>
+    </form>
+  </view>
+
+  <!-- Opportunity calendar view -->
+  <view name="crm.opportunity.calendar" model="crm.opportunity" type="calendar" priority="16">
+    <calendar date_start="close_date" mode="month" string="Opportunities">
+      <field name="name"/>
+      <field name="expected_revenue"/>
+    </calendar>
+  </view>
+
+  <!-- Opportunity graph view — bar chart: revenue by stage (client aggregates from list data) -->
+  <view name="crm.opportunity.graph" model="crm.opportunity" type="graph" priority="16">
+    <graph string="Expected revenue" type="bar">
+      <field name="stage_id" type="row"/>
+      <field name="expected_revenue" type="measure"/>
+    </graph>
+  </view>
+
+  <!-- Opportunity search view -->
+  <view name="crm.opportunity.search" model="crm.opportunity" type="search" priority="16">
+    <search>
+      <field name="name" string="Title"/>
+      <field name="customer_id" string="Customer"/>
+      <filter name="my_opportunities" string="My Opportunities" domain="[('assigned_user_id', '=', 'current_user')]"/>
+      <filter name="won" string="Won" domain="[('stage_id.is_won', '=', True)]"/>
+      <group expand="0" string="Group By">
+        <filter name="by_stage" string="Stage" context="{'group_by': 'stage_id'}"/>
+        <filter name="by_pipeline" string="Pipeline" context="{'group_by': 'pipeline_id'}"/>
+        <filter name="by_salesperson" string="Salesperson" context="{'group_by': 'assigned_user_id'}"/>
+      </group>
+    </search>
+  </view>
+
+</views>
