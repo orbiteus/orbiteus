@@ -10,7 +10,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.1.0] — 2026-03-13
+## [0.1.0] — 2026-04-16
 
 ### Added — Phase 1 (Architecture) + Phase 2 (Backend)
 
@@ -67,4 +67,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - JWT auth with `python-jose` + bcrypt
 - PostgreSQL 16 with asyncpg driver
 - Alembic migration setup
+
+[Unreleased]: https://github.com/orbiteus/orbiteus/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/orbiteus/orbiteus/releases/tag/v0.1.0
 
