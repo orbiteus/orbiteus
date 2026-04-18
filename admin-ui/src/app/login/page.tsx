@@ -374,16 +374,23 @@ export default function LoginPage() {
     <Box bg="gray.0" mih="100vh" pb="xl" w="100%">
       <Container fluid px={fluidPx} pt="md" pb="xl" w="100%">
         <Stack gap="xl" w="100%">
-          <Stack gap={4} align="center" w="100%">
-            <Group gap="sm" justify="center">
+          <Stack gap="xs" align="flex-start" w="100%">
+            <Group gap="sm" justify="flex-start" align="center" wrap="nowrap">
               {branding.logo_url ? (
-                <img src={branding.logo_url} alt={branding.name} style={{ height: 44 }} />
+                <>
+                  <img src={branding.logo_url} alt="" aria-hidden style={{ height: 44, width: "auto", display: "block" }} />
+                  <Title order={2} c="dark.9" style={{ lineHeight: 1.2 }}>
+                    {branding.name}
+                  </Title>
+                </>
               ) : (
-                <Title order={2}>{branding.name}</Title>
+                <Title order={2} c="dark.9">
+                  {branding.name}
+                </Title>
               )}
             </Group>
-            <Text size="sm" c="dimmed" ta="center" w="100%" maw="100%">
-              AI-native, composable ERP/CRM engine — build vertical apps on a registry-driven stack, not a rigid SKU.
+            <Text size="sm" c="dimmed" ta="left" maw={{ base: "100%", sm: "48rem" }} lh={1.55}>
+              Development Engine to build with AI custom ERP/CRM &amp; Apps. Start with 80% job done.
             </Text>
           </Stack>
 
