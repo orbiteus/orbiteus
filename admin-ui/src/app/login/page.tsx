@@ -12,6 +12,7 @@ import {
   Checkbox,
   Code,
   Container,
+  Flex,
   Group,
   List,
   Loader,
@@ -372,33 +373,42 @@ export default function LoginPage() {
 
   return (
     <Box bg="gray.0" mih="100vh" pb="xl" w="100%">
-      <Container fluid px={fluidPx} pt="md" pb="xl" w="100%">
-        <Stack gap="xl" w="100%">
-          <Stack gap="xs" align="flex-start" w="100%">
-            <Group gap="sm" justify="flex-start" align="center" wrap="nowrap">
-              {branding.logo_url ? (
-                <>
-                  <img src={branding.logo_url} alt="" aria-hidden style={{ height: 44, width: "auto", display: "block" }} />
-                  <Title order={2} c="dark.9" style={{ lineHeight: 1.2 }}>
+      <Container fluid px={fluidPx} pt="md" pb="xl" w="100%" mx={0}>
+        <Stack gap="xl" w="100%" align="flex-start">
+          <Box
+            component="header"
+            w="100%"
+            pb="md"
+            style={{
+              borderBottom: "1px solid var(--mantine-color-default-border)",
+            }}
+          >
+            <Flex direction="column" align="flex-start" gap="xs" w="100%" wrap="nowrap">
+              <Group gap="sm" justify="flex-start" align="center" wrap="nowrap" w="100%">
+                {branding.logo_url ? (
+                  <>
+                    <img src={branding.logo_url} alt="" aria-hidden style={{ height: 44, width: "auto", display: "block" }} />
+                    <Title order={2} c="dark.9" style={{ lineHeight: 1.2 }}>
+                      {branding.name}
+                    </Title>
+                  </>
+                ) : (
+                  <Title order={2} c="dark.9">
                     {branding.name}
                   </Title>
-                </>
-              ) : (
-                <Title order={2} c="dark.9">
-                  {branding.name}
-                </Title>
-              )}
-            </Group>
-            <Text size="sm" c="dimmed" ta="left" maw={{ base: "100%", sm: "48rem" }} lh={1.55}>
-              Development Engine to build with AI custom ERP/CRM &amp; Apps. Start with 80% job done.
-            </Text>
-          </Stack>
+                )}
+              </Group>
+              <Text size="sm" c="dimmed" ta="left" maw={{ base: "100%", md: "42rem", lg: "50rem" }} lh={1.55}>
+                Development Engine to build with AI custom ERP/CRM &amp; Apps. Start with 80% job done.
+              </Text>
+            </Flex>
+          </Box>
 
-          <Stack gap="md" align="center" w="100%">
-            <Title order={1} ta="center" fz={{ base: 26, sm: 34 }} fw={700} w="100%">
+          <Stack gap="md" align="flex-start" w="100%">
+            <Title order={1} ta="left" fz={{ base: 26, sm: 34 }} fw={700} w="100%">
               Welcome to your Orbiteus installation
             </Title>
-            <Text c="dimmed" ta="center" lh={1.65} w="100%" size="md">
+            <Text c="dimmed" ta="left" lh={1.65} w="100%" maw={{ base: "100%", md: "48rem", lg: "56rem" }} size="md">
               This page is the public entry to your demo instance: the same Next.js + FastAPI codebase as in the
               repository, with live PostgreSQL, auto-generated CRUD, registry-driven modules, Command Palette (⌘K), and
               OpenAPI per model — a modular onboarding layout tailored for Orbiteus.
