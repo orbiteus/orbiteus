@@ -262,8 +262,8 @@ export default function LoginPage() {
 
   return (
     <Box bg="gray.0" mih="100vh" pb="xl">
-      <Container size="lg" py="xl">
-        <Stack gap="xl">
+      <Container size="lg" pt="md" pb="xl">
+        <Stack gap="lg">
           <Stack gap={4} align="center">
             <Group gap="sm" justify="center">
               {branding.logo_url ? (
@@ -311,13 +311,19 @@ export default function LoginPage() {
             </List>
           </Alert>
 
+          <Divider label="Sign in" labelPosition="center" />
+
+          {signInForm}
+
+          <Divider />
+
           <Box>
             <Title order={3} mb="md" ta="center">
               Choose how you will use this demo
             </Title>
             <Text c="dimmed" ta="center" mb="lg" size="sm" maw={640} mx="auto">
               Orbiteus does not ship separate demo personas — everyone signs in with the same JWT flow. The cards below
-              describe what you can do once authenticated; each button jumps to the sign-in form.
+              describe what you can do once authenticated; each button scrolls back to the sign-in form above.
             </Text>
             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
               {roleCards.map((card) => {
@@ -358,12 +364,6 @@ export default function LoginPage() {
               })}
             </SimpleGrid>
           </Box>
-
-          <Divider label="Sign in" labelPosition="center" />
-
-          {signInForm}
-
-          <Divider />
 
           <Box>
             <Title order={3} mb="md">
