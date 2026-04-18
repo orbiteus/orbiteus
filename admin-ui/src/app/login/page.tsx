@@ -10,8 +10,8 @@ import {
   Button,
   Card,
   Checkbox,
+  Code,
   Container,
-  Divider,
   Group,
   List,
   Loader,
@@ -27,11 +27,11 @@ import {
 import {
   IconAlertCircle,
   IconApi,
+  IconArrowLeft,
   IconBook,
   IconBrandGithub,
   IconCircleCheck,
   IconDatabase,
-  IconFileCode,
   IconShieldLock,
   IconUsers,
 } from "@tabler/icons-react";
@@ -40,8 +40,17 @@ import { useBranding } from "@/lib/branding";
 
 const WELCOME_LS_KEY = "orbiteus_show_welcome";
 
+/** Baked at `next build` — public demo hosts pass these as Docker build args. */
+const DEMO_EMAIL_PUBLIC = process.env.NEXT_PUBLIC_DEMO_LOGIN_EMAIL ?? "";
+const DEMO_PASSWORD_PUBLIC = process.env.NEXT_PUBLIC_DEMO_LOGIN_PASSWORD ?? "";
+
+const README_LOCAL_EMAIL = "admin@example.com";
+const README_LOCAL_PASSWORD = "admin1234";
+
 type HealthJson = { status?: string; service?: string };
 type UiModule = { name: string; label: string; models: { name: string }[] };
+
+type AuthStep = "welcome" | "signin";
 
 const roleCards: {
   title: string;
@@ -88,12 +97,7 @@ const roleCards: {
   },
 ];
 
-function scrollToSignIn() {
-  document.getElementById("sign-in")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  window.setTimeout(() => {
-    document.querySelector<HTMLInputElement>("#sign-in-email")?.focus();
-  }, 400);
-}
+const fluidPx = { base: "md", sm: "xl", lg: "3rem", xl: "4rem" } as const;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -105,6 +109,7 @@ export default function LoginPage() {
 
   const [fullWelcome, setFullWelcome] = useState(true);
   const [welcomeChecked, setWelcomeChecked] = useState(true);
+  const [authStep, setAuthStep] = useState<AuthStep>("welcome");
 
   const [health, setHealth] = useState<HealthJson | null>(null);
   const [healthErr, setHealthErr] = useState(false);
@@ -122,6 +127,25 @@ export default function LoginPage() {
   const saveWelcomePreference = useCallback((checked: boolean) => {
     localStorage.setItem(WELCOME_LS_KEY, checked ? "true" : "false");
     setWelcomeChecked(checked);
+  }, []);
+
+  const applyPublicDemoPrefill = useCallback(() => {
+    if (DEMO_EMAIL_PUBLIC) setEmail(DEMO_EMAIL_PUBLIC);
+    else setEmail(README_LOCAL_EMAIL);
+    if (DEMO_PASSWORD_PUBLIC) setPassword(DEMO_PASSWORD_PUBLIC);
+    else setPassword(README_LOCAL_PASSWORD);
+  }, []);
+
+  const goToSignIn = useCallback(() => {
+    setAuthStep("signin");
+    setError("");
+    applyPublicDemoPrefill();
+  }, [applyPublicDemoPrefill]);
+
+  const goToWelcome = useCallback(() => {
+    setAuthStep("welcome");
+    setPassword("");
+    setError("");
   }, []);
 
   useEffect(() => {
@@ -159,6 +183,10 @@ export default function LoginPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!fullWelcome) applyPublicDemoPrefill();
+  }, [fullWelcome, applyPublicDemoPrefill]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -178,8 +206,67 @@ export default function LoginPage() {
   const apiBase =
     typeof window !== "undefined" ? `${window.location.origin}/api` : "/api";
 
-  const signInForm = (
-    <Paper id="sign-in" p="xl" withBorder maw={480} mx="auto" w="100%">
+  const hasBakedDemoCreds = Boolean(DEMO_EMAIL_PUBLIC && DEMO_PASSWORD_PUBLIC);
+
+  const demoCredentialsPanel = (
+    <Paper withBorder p="xl" h="100%">
+      <Stack gap="md">
+        <Title order={4}>Demo credentials</Title>
+        {hasBakedDemoCreds ? (
+          <Stack gap="md">
+            <Box>
+              <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb={4}>
+                Email
+              </Text>
+              <Code block>{DEMO_EMAIL_PUBLIC}</Code>
+            </Box>
+            <Box>
+              <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb={4}>
+                Password
+              </Text>
+              <Code block>{DEMO_PASSWORD_PUBLIC}</Code>
+            </Box>
+            <Text size="xs" c="dimmed">
+              Shown because this image was built with{" "}
+              <Text span ff="monospace" size="xs">
+                NEXT_PUBLIC_DEMO_LOGIN_*
+              </Text>
+              . Rotate after evaluation.
+            </Text>
+          </Stack>
+        ) : (
+          <Stack gap="sm">
+            <Text size="sm" c="dimmed">
+              This build does not ship operator-specific secrets. Use the defaults from the README for a local Docker
+              stack, or values from your deployment.
+            </Text>
+            <Text size="sm" fw={600}>
+              README — local Docker
+            </Text>
+            <Code block>
+              {README_LOCAL_EMAIL}
+              {"\n"}
+              {README_LOCAL_PASSWORD}
+            </Code>
+            <Text size="xs" c="dimmed">
+              For a public demo host, rebuild the frontend with{" "}
+              <Text span ff="monospace" size="xs">
+                NEXT_PUBLIC_DEMO_LOGIN_EMAIL
+              </Text>{" "}
+              and{" "}
+              <Text span ff="monospace" size="xs">
+                NEXT_PUBLIC_DEMO_LOGIN_PASSWORD
+              </Text>{" "}
+              matching <Text span ff="monospace">BOOTSTRAP_ADMIN_*</Text>.
+            </Text>
+          </Stack>
+        )}
+      </Stack>
+    </Paper>
+  );
+
+  const signInFormPanel = (
+    <Paper withBorder p="xl" id="sign-in" h="100%">
       <Stack gap="md">
         <Box>
           <Group gap="sm" mb={4}>
@@ -192,7 +279,7 @@ export default function LoginPage() {
             )}
           </Group>
           <Text size="sm" c="dimmed">
-            Email and password
+            Sign in with your account
           </Text>
         </Box>
         {error ? (
@@ -209,7 +296,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              autoFocus={!fullWelcome}
+              autoFocus
             />
             <PasswordInput label="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <Button type="submit" loading={loading} fullWidth mt="xs" size="md" color="dark">
@@ -217,54 +304,77 @@ export default function LoginPage() {
             </Button>
           </Stack>
         </form>
-        <Text size="xs" c="dimmed" ta="center">
-          The bootstrap superadmin is created on first backend start from{" "}
-          <Text span fw={600} c="dark.6">
-            BOOTSTRAP_ADMIN_EMAIL
-          </Text>{" "}
-          /{" "}
-          <Text span fw={600} c="dark.6">
-            BOOTSTRAP_ADMIN_PASSWORD
-          </Text>{" "}
-          (see your operator — not shown here). Change credentials after login in production.
-        </Text>
       </Stack>
     </Paper>
   );
 
+  const signInStepLayout = (opts: { showBack: boolean }) => (
+    <Box bg="gray.0" w="100%">
+      <Container fluid px={fluidPx} py="xl" w="100%">
+        <Stack gap="xl" w="100%">
+          {opts.showBack ? (
+            <Button
+              variant="subtle"
+              color="dark"
+              leftSection={<IconArrowLeft size={18} />}
+              onClick={goToWelcome}
+              w="fit-content"
+            >
+              Back to welcome
+            </Button>
+          ) : null}
+          <Title order={1} fz={{ base: 28, sm: 34 }}>
+            Sign in
+          </Title>
+          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl" w="100%">
+            {demoCredentialsPanel}
+            {signInFormPanel}
+          </SimpleGrid>
+        </Stack>
+      </Container>
+    </Box>
+  );
+
   if (!fullWelcome) {
     return (
-      <Box bg="gray.0" mih="100vh" py="xl">
-        <Container size="xs">
-          <Stack gap="lg">
-            {signInForm}
-            <Text ta="center" size="sm">
-              <Anchor
-                component="button"
-                type="button"
-                c="dark"
-                fw={600}
-                style={{ background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-                onClick={() => {
-                  localStorage.removeItem(WELCOME_LS_KEY);
-                  setFullWelcome(true);
-                  setWelcomeChecked(true);
-                }}
-              >
-                Show full welcome page
-              </Anchor>
-            </Text>
-          </Stack>
+      <Box bg="gray.0" mih="100vh" w="100%">
+        {signInStepLayout({ showBack: false })}
+        <Container fluid px={fluidPx} pb="xl">
+          <Text ta="center" size="sm">
+            <Anchor
+              component="button"
+              type="button"
+              c="dark"
+              fw={600}
+              style={{ background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+              onClick={() => {
+                localStorage.removeItem(WELCOME_LS_KEY);
+                setFullWelcome(true);
+                setWelcomeChecked(true);
+                setAuthStep("welcome");
+              }}
+            >
+              Show full welcome page
+            </Anchor>
+          </Text>
         </Container>
       </Box>
     );
   }
 
+  if (authStep === "signin") {
+    return (
+      <Box bg="gray.0" mih="100vh" w="100%">
+        {signInStepLayout({ showBack: true })}
+      </Box>
+    );
+  }
+
   return (
-    <Box bg="gray.0" mih="100vh" pb="xl">
-      <Container size="lg" pt="md" pb="xl">
-        <Stack gap="lg">
-          <Stack gap={4} align="center">
+    <Box bg="gray.0" mih="100vh" pb="xl" w="100%">
+      <Container fluid px={fluidPx} pt="md" pb="xl" w="100%">
+        <Stack gap="xl" w="100%">
+          <Stack gap={4} align="center" w="100%">
             <Group gap="sm" justify="center">
               {branding.logo_url ? (
                 <img src={branding.logo_url} alt={branding.name} style={{ height: 44 }} />
@@ -272,16 +382,16 @@ export default function LoginPage() {
                 <Title order={2}>{branding.name}</Title>
               )}
             </Group>
-            <Text size="sm" c="dimmed" ta="center" maw={560}>
+            <Text size="sm" c="dimmed" ta="center" w="100%" maw="100%">
               AI-native, composable ERP/CRM engine — build vertical apps on a registry-driven stack, not a rigid SKU.
             </Text>
           </Stack>
 
-          <Stack gap="md" align="center">
-            <Title order={1} ta="center" fz={{ base: 26, sm: 32 }} fw={700}>
+          <Stack gap="md" align="center" w="100%">
+            <Title order={1} ta="center" fz={{ base: 26, sm: 34 }} fw={700} w="100%">
               Welcome to your Orbiteus installation
             </Title>
-            <Text c="dimmed" ta="center" maw={720} lh={1.65}>
+            <Text c="dimmed" ta="center" lh={1.65} w="100%" size="md">
               This page is the public entry to your demo instance: the same Next.js + FastAPI codebase as in the
               repository, with live PostgreSQL, auto-generated CRUD, registry-driven modules, Command Palette (⌘K), and
               OpenAPI per model — a modular onboarding layout tailored for Orbiteus.
@@ -291,8 +401,8 @@ export default function LoginPage() {
           <Alert color="dark" variant="outline" title="Demo & security">
             <List spacing="xs" size="sm" mt="xs" withPadding>
               <List.Item>
-                Credentials are never embedded in the UI — they come from your deployment (e.g. Docker env on the demo
-                host).
+                The next step shows the sign-in form and, when configured at build time, the public demo email/password
+                pair for this host. Otherwise you see README defaults for local development only.
               </List.Item>
               <List.Item>
                 After first login, rotate passwords and tighten{" "}
@@ -311,65 +421,59 @@ export default function LoginPage() {
             </List>
           </Alert>
 
-          <Divider label="Sign in" labelPosition="center" />
-
-          {signInForm}
-
-          <Divider />
-
-          <Box>
+          <Box w="100%">
             <Title order={3} mb="md" ta="center">
               Choose how you will use this demo
             </Title>
-            <Text c="dimmed" ta="center" mb="lg" size="sm" maw={640} mx="auto">
-              Orbiteus does not ship separate demo personas — everyone signs in with the same JWT flow. The cards below
-              describe what you can do once authenticated; each button scrolls back to the sign-in form above.
+            <Text c="dimmed" ta="center" mb="lg" size="sm" w="100%">
+              One JWT session for everyone — pick a path below to open the sign-in step. The same bootstrap account
+              applies; cards describe what you can do after authentication.
             </Text>
-            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" w="100%">
               {roleCards.map((card) => {
                 const RoleIcon = card.icon;
                 return (
-                <Card key={card.title} withBorder padding="lg" radius="md" h="100%">
-                  <Stack gap="sm" h="100%">
-                    <ThemeIcon variant="outline" color="dark" size="lg" radius="md">
-                      <RoleIcon size={22} stroke={1.5} />
-                    </ThemeIcon>
-                    <Title order={4}>{card.title}</Title>
-                    <Text size="sm" c="dimmed" lh={1.55}>
-                      {card.blurb}
-                    </Text>
-                    <Text size="xs" fw={700} tt="uppercase" c="dimmed" mt="xs">
-                      Available in this build
-                    </Text>
-                    <List
-                      spacing={6}
-                      size="sm"
-                      icon={
-                        <ThemeIcon variant="transparent" color="dark" size={20} radius="xl">
-                          <IconCircleCheck size={14} stroke={1.5} />
-                        </ThemeIcon>
-                      }
-                      style={{ flex: 1 }}
-                    >
-                      {card.features.map((f) => (
-                        <List.Item key={f}>{f}</List.Item>
-                      ))}
-                    </List>
-                    <Button fullWidth mt="auto" variant="filled" color="dark" onClick={scrollToSignIn}>
-                      {card.cta}
-                    </Button>
-                  </Stack>
-                </Card>
+                  <Card key={card.title} withBorder padding="lg" radius="md" h="100%">
+                    <Stack gap="sm" h="100%">
+                      <ThemeIcon variant="outline" color="dark" size="lg" radius="md">
+                        <RoleIcon size={22} stroke={1.5} />
+                      </ThemeIcon>
+                      <Title order={4}>{card.title}</Title>
+                      <Text size="sm" c="dimmed" lh={1.55}>
+                        {card.blurb}
+                      </Text>
+                      <Text size="xs" fw={700} tt="uppercase" c="dimmed" mt="xs">
+                        Available in this build
+                      </Text>
+                      <List
+                        spacing={6}
+                        size="sm"
+                        icon={
+                          <ThemeIcon variant="transparent" color="dark" size={20} radius="xl">
+                            <IconCircleCheck size={14} stroke={1.5} />
+                          </ThemeIcon>
+                        }
+                        style={{ flex: 1 }}
+                      >
+                        {card.features.map((f) => (
+                          <List.Item key={f}>{f}</List.Item>
+                        ))}
+                      </List>
+                      <Button fullWidth mt="auto" variant="filled" color="dark" onClick={goToSignIn}>
+                        {card.cta}
+                      </Button>
+                    </Stack>
+                  </Card>
                 );
               })}
             </SimpleGrid>
           </Box>
 
-          <Box>
+          <Box w="100%">
             <Title order={3} mb="md">
               API resources
             </Title>
-            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+            <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" w="100%">
               <Paper withBorder p="md" component={Stack} gap="xs">
                 <Text fw={700} size="sm">
                   OpenAPI / Swagger
@@ -440,7 +544,7 @@ export default function LoginPage() {
             color="dark"
           />
 
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md" w="100%">
             <Paper withBorder p="md">
               <Group gap="sm" mb="sm">
                 <ThemeIcon variant="outline" color="dark" size="md" radius="md">
@@ -476,7 +580,7 @@ export default function LoginPage() {
               {metaLoading && !modules.length ? (
                 <Loader size="sm" color="dark" />
               ) : (
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="sm" w="100%">
                   {modules.map((m) => (
                     <Paper key={m.name} withBorder p="sm" radius="sm">
                       <Group justify="space-between" wrap="nowrap" gap="xs">
@@ -497,7 +601,7 @@ export default function LoginPage() {
             </Paper>
           </SimpleGrid>
 
-          <Stack gap="xs" align="center" pt="md">
+          <Stack gap="xs" align="center" pt="md" w="100%">
             <Group gap="md" justify="center" wrap="wrap">
               <Anchor href="/login" size="sm" c="dark" fw={600}>
                 Welcome

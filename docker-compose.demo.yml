@@ -45,6 +45,9 @@ services:
       dockerfile: Dockerfile.prod
       args:
         BACKEND_URL: http://backend:8000
+        # Shown on /login sign-in step (baked at build). Keep in sync with bootstrap admin.
+        NEXT_PUBLIC_DEMO_LOGIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL}
+        NEXT_PUBLIC_DEMO_LOGIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD}
     environment:
       BACKEND_URL: http://backend:8000
     ports:
