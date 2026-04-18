@@ -282,13 +282,9 @@ export default function LoginPage() {
               Welcome to your Orbiteus installation
             </Title>
             <Text c="dimmed" ta="center" maw={720} lh={1.65}>
-              This page is the public entry to your demo instance: explore the same Next.js + FastAPI codebase as in the
-              repository, with live PostgreSQL and auto-generated CRUD. We took layout cues from{" "}
-              <Anchor href="https://demo.openmercato.com" target="_blank" rel="noreferrer" fw={600}>
-                Open Mercato
-              </Anchor>{" "}
-              — modular ERP onboarding — and rewrote the story for Orbiteus (registry modules, Command Palette, OpenAPI
-              per model).
+              This page is the public entry to your demo instance: the same Next.js + FastAPI codebase as in the
+              repository, with live PostgreSQL, auto-generated CRUD, registry-driven modules, Command Palette (⌘K), and
+              OpenAPI per model — a modular onboarding layout tailored for Orbiteus.
             </Text>
           </Stack>
 
