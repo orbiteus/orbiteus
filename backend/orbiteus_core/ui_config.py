@@ -117,6 +117,24 @@ def _field_label(name: str) -> str:
     return name.replace("_", " ").replace("-", " ").title()
 
 
+def _fk_field_label(name: str) -> str:
+    """Convert a foreign-key field name (``*_id``) to its display label.
+
+    FK fields are named ``<target>_id`` by convention (``assigned_user_id``,
+    ``customer_id``). Rendering the raw suffix in the UI produces labels like
+    ``Assigned User Id`` which is both redundant and visually noisy. This
+    helper strips the trailing ``_id`` before Title-Casing so the same field
+    becomes ``Assigned User``.
+
+    Business-identifier fields like ``tax_id`` or ``vat_id`` are NOT FKs
+    (they have no ``relation``) and should keep their suffix — callers must
+    therefore only use this helper when they already know the field is an
+    FK / many2one. ``_field_label`` remains the default for everything else.
+    """
+    base = name[:-3] if name.endswith("_id") else name
+    return base.replace("_", " ").replace("-", " ").title()
+
+
 def _unwrap_optional(annotation: Any) -> Any:
     """Return inner type for Optional[X] / X | None."""
     if annotation is None:
@@ -217,7 +235,7 @@ def pydantic_schema_to_fields(schema: type[BaseModel], model_name: str) -> list[
                 "name":     field_name,
                 "type":     "many2one",
                 "required": field_info.is_required(),
-                "label":    field_info.title or _field_label(field_name),
+                "label":    field_info.title or _fk_field_label(field_name),
                 "relation": rel,
             })
             continue
