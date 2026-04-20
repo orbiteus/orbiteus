@@ -68,7 +68,7 @@ export default function LoginPage() {
                 required
               />
               <Button type="submit" loading={loading} fullWidth mt="sm">
-                Zaloguj
+                Sign in
               </Button>
             </Stack>
           </form>
