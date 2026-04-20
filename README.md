@@ -6,6 +6,17 @@
 
 # Orbiteus — AI-Native, Composable ERP/CRM Engine
 
+<div align="center">
+
+[![CI](https://github.com/orbiteus/orbiteus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/orbiteus/orbiteus/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-black?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Code of Conduct](https://img.shields.io/badge/Contributor_Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
+</div>
+
 **Website:** [orbiteus.com](https://orbiteus.com)
 
 > **Build your own business management tools 10x faster** than forcing your business into the rigid constraints of legacy off-the-shelf systems.
