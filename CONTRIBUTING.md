@@ -24,6 +24,16 @@ There is no `packages/` workspace: new backend code belongs in **`backend/`** (c
 
 If the project later introduces a long-lived **`develop`** branch for pre-release soak time, feature PRs may target that instead; this file and the README will be updated.
 
+### Branch discipline
+
+A few ground rules that keep history reviewable and fork-safe for everyone else:
+
+- **Do not rewrite history on shared branches.** `main` and any other branch that has collaborators or open PRs against it should never receive `git push --force` or `--force-with-lease`. Rewriting published history breaks every fork, every open PR, every bookmarked commit link, and every downstream clone.
+- **Force-pushing your own topic branch is fine** — as long as nobody else has checked it out and there is no PR review in progress against it.
+- **Prefer `git revert` over `git reset --hard` on published branches.** If a bad commit lands on `main`, a revert keeps the record; a force-push erases it.
+- **Rebase before opening a PR**, merge or rebase after. Keep PR branches current with `main` via `git fetch upstream && git rebase upstream/main`. Merging `main` into your PR branch is also acceptable if rebasing would be disruptive.
+- **One concern per branch.** If you find an unrelated issue while working on a change, open a separate branch and PR for it.
+
 ## Working on features
 
 1. **Fork** the repo and clone your fork. Add the upstream remote, for example:
