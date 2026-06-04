@@ -18,13 +18,13 @@ def test_rename_migration_revises_webhook_filters():
 def test_rename_migration_renames_all_engine_tables():
     text = MIG.read_text()
     for old, new in (
-        ("base_models", "base_models"),
-        ("base_model_fields", "base_model_fields"),
-        ("base_audit_log", "base_audit_log"),
-        ("base_outbox", "base_outbox"),
-        ("base_webhooks", "base_webhooks"),
-        ("base_ai_credentials", "base_ai_credentials"),
-        ("base_embeddings", "base_embeddings"),
+        ("ir_models", "base_models"),
+        ("ir_model_fields", "base_model_fields"),
+        ("ir_audit_log", "base_audit_log"),
+        ("ir_outbox", "base_outbox"),
+        ("ir_webhooks", "base_webhooks"),
+        ("ir_ai_credentials", "base_ai_credentials"),
+        ("ir_embeddings", "base_embeddings"),
     ):
         assert f'("{old}", "{new}")' in text, f"missing rename pair {old} → {new}"
 

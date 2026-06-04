@@ -4,46 +4,6 @@
  */
 
 export interface paths {
-    "/api/base/tenant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List base.tenant */
-        get: operations["list_records_api_base_tenant_get"];
-        put?: never;
-        /** Create base.tenant */
-        post: operations["create_record_api_base_tenant_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/tenant/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get base.tenant */
-        get: operations["get_record_api_base_tenant__record_id__get"];
-        /**
-         * Update base.tenant
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_base_tenant__record_id__put"];
-        post?: never;
-        /** Delete base.tenant */
-        delete: operations["delete_record_api_base_tenant__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/base/company": {
         parameters: {
             query?: never;
@@ -79,46 +39,6 @@ export interface paths {
         post?: never;
         /** Delete base.company */
         delete: operations["delete_record_api_base_company__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/partner": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List base.partner */
-        get: operations["list_records_api_base_partner_get"];
-        put?: never;
-        /** Create base.partner */
-        post: operations["create_record_api_base_partner_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/partner/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get base.partner */
-        get: operations["get_record_api_base_partner__record_id__get"];
-        /**
-         * Update base.partner
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_base_partner__record_id__put"];
-        post?: never;
-        /** Delete base.partner */
-        delete: operations["delete_record_api_base_partner__record_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -244,46 +164,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/base/registry-model-field": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List base.registry-model-field */
-        get: operations["list_records_api_base_registry_model_field_get"];
-        put?: never;
-        /** Create base.registry-model-field */
-        post: operations["create_record_api_base_registry_model_field_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/registry-model-field/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get base.registry-model-field */
-        get: operations["get_record_api_base_registry_model_field__record_id__get"];
-        /**
-         * Update base.registry-model-field
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_base_registry_model_field__record_id__put"];
-        post?: never;
-        /** Delete base.registry-model-field */
-        delete: operations["delete_record_api_base_registry_model_field__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/base/model-access": {
         parameters: {
             query?: never;
@@ -364,86 +244,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/base/ui-menu": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List base.ui-menu */
-        get: operations["list_records_api_base_ui_menu_get"];
-        put?: never;
-        /** Create base.ui-menu */
-        post: operations["create_record_api_base_ui_menu_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/ui-menu/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get base.ui-menu */
-        get: operations["get_record_api_base_ui_menu__record_id__get"];
-        /**
-         * Update base.ui-menu
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_base_ui_menu__record_id__put"];
-        post?: never;
-        /** Delete base.ui-menu */
-        delete: operations["delete_record_api_base_ui_menu__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/sequence": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List base.sequence */
-        get: operations["list_records_api_base_sequence_get"];
-        put?: never;
-        /** Create base.sequence */
-        post: operations["create_record_api_base_sequence_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/sequence/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get base.sequence */
-        get: operations["get_record_api_base_sequence__record_id__get"];
-        /**
-         * Update base.sequence
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_base_sequence__record_id__put"];
-        post?: never;
-        /** Delete base.sequence */
-        delete: operations["delete_record_api_base_sequence__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/base/config-param": {
         parameters: {
             query?: never;
@@ -484,81 +284,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/base/scheduled-job": {
+    "/api/base/ui-translation": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List base.scheduled-job */
-        get: operations["list_records_api_base_scheduled_job_get"];
+        /** List base.ui-translation */
+        get: operations["list_records_api_base_ui_translation_get"];
         put?: never;
-        /** Create base.scheduled-job */
-        post: operations["create_record_api_base_scheduled_job_post"];
+        /** Create base.ui-translation */
+        post: operations["create_record_api_base_ui_translation_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/base/scheduled-job/{record_id}": {
+    "/api/base/ui-translation/{record_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get base.scheduled-job */
-        get: operations["get_record_api_base_scheduled_job__record_id__get"];
+        /** Get base.ui-translation */
+        get: operations["get_record_api_base_ui_translation__record_id__get"];
         /**
-         * Update base.scheduled-job
+         * Update base.ui-translation
          * @description Merge JSON body with the existing record, then validate (supports partial updates).
          */
-        put: operations["update_record_api_base_scheduled_job__record_id__put"];
+        put: operations["update_record_api_base_ui_translation__record_id__put"];
         post?: never;
-        /** Delete base.scheduled-job */
-        delete: operations["delete_record_api_base_scheduled_job__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/ui-view": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List base.ui-view */
-        get: operations["list_records_api_base_ui_view_get"];
-        put?: never;
-        /** Create base.ui-view */
-        post: operations["create_record_api_base_ui_view_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/base/ui-view/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get base.ui-view */
-        get: operations["get_record_api_base_ui_view__record_id__get"];
-        /**
-         * Update base.ui-view
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_base_ui_view__record_id__put"];
-        post?: never;
-        /** Delete base.ui-view */
-        delete: operations["delete_record_api_base_ui_view__record_id__delete"];
+        /** Delete base.ui-translation */
+        delete: operations["delete_record_api_base_ui_translation__record_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -761,7 +521,7 @@ export interface paths {
          *     Filters:
          *         - model         e.g. ?model=crm.customer
          *         - record_id     e.g. ?record_id=<uuid>
-         *         - actor         user | ai | system
+         *         - actor         user | ai | portal | system
          *         - operation     create | update | delete | tool_call | login | login_failed
          *         - user_id       filter by acting user
          *
@@ -770,6 +530,98 @@ export interface paths {
         get: operations["list_audit_log_api_base_audit_log_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/base/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Attachments
+         * @description List attachments for a record or tenant-wide (system admins only).
+         *
+         *     When ``res_model`` and ``res_id`` are provided, returns files linked to
+         *     that record (requires read access on the record). Without them, only
+         *     ``base.group_system`` may search the whole tenant catalog.
+         */
+        get: operations["list_attachments_api_base_attachments_get"];
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description Upload a file and link it to ``res_model`` / ``res_id``.
+         */
+        post: operations["upload_attachment_api_base_attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/base/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attachment Metadata
+         * @description Return attachment metadata (not the binary).
+         */
+        get: operations["get_attachment_metadata_api_base_attachments__attachment_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Attachment
+         * @description Soft-delete metadata and remove the binary from storage.
+         */
+        delete: operations["delete_attachment_api_base_attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/base/attachments/{attachment_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Attachment
+         * @description Stream the attachment binary.
+         */
+        get: operations["download_attachment_api_base_attachments__attachment_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/base/attachments/purge-orphans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purge Orphan Attachments
+         * @description Remove attachment metadata + files that point at deleted business records.
+         */
+        post: operations["purge_orphan_attachments_api_base_attachments_purge_orphans_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1018,6 +870,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/base/i18n/locales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Ui Locales
+         * @description Registered UI languages (built-in + enabled module packs).
+         */
+        get: operations["list_ui_locales_api_base_i18n_locales_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/base/i18n/messages/{lang}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ui Messages
+         * @description Merged UI messages for a locale (module JSON files + DB overrides).
+         */
+        get: operations["get_ui_messages_api_base_i18n_messages__lang__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/base/rbac/reload": {
         parameters: {
             query?: never;
@@ -1178,7 +1070,7 @@ export interface paths {
         };
         /**
          * Me
-         * @description Return current user profile.
+         * @description Return current user profile with live RBAC version for permission refresh.
          */
         get: operations["me_api_auth_me_get"];
         put?: never;
@@ -1290,226 +1182,6 @@ export interface paths {
          *     response — the server stores only bcrypt hashes.
          */
         post: operations["regenerate_recovery_codes_api_auth_2fa_recovery_codes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/person": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List crm.person */
-        get: operations["list_records_api_crm_person_get"];
-        put?: never;
-        /** Create crm.person */
-        post: operations["create_record_api_crm_person_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/person/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get crm.person */
-        get: operations["get_record_api_crm_person__record_id__get"];
-        /**
-         * Update crm.person
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_crm_person__record_id__put"];
-        post?: never;
-        /** Delete crm.person */
-        delete: operations["delete_record_api_crm_person__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/lead": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List crm.lead */
-        get: operations["list_records_api_crm_lead_get"];
-        put?: never;
-        /** Create crm.lead */
-        post: operations["create_record_api_crm_lead_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/lead/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get crm.lead */
-        get: operations["get_record_api_crm_lead__record_id__get"];
-        /**
-         * Update crm.lead
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_crm_lead__record_id__put"];
-        post?: never;
-        /** Delete crm.lead */
-        delete: operations["delete_record_api_crm_lead__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/stage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List crm.stage */
-        get: operations["list_records_api_crm_stage_get"];
-        put?: never;
-        /** Create crm.stage */
-        post: operations["create_record_api_crm_stage_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/stage/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get crm.stage */
-        get: operations["get_record_api_crm_stage__record_id__get"];
-        /**
-         * Update crm.stage
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_crm_stage__record_id__put"];
-        post?: never;
-        /** Delete crm.stage */
-        delete: operations["delete_record_api_crm_stage__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/team": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List crm.team */
-        get: operations["list_records_api_crm_team_get"];
-        put?: never;
-        /** Create crm.team */
-        post: operations["create_record_api_crm_team_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/team/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get crm.team */
-        get: operations["get_record_api_crm_team__record_id__get"];
-        /**
-         * Update crm.team
-         * @description Merge JSON body with the existing record, then validate (supports partial updates).
-         */
-        put: operations["update_record_api_crm_team__record_id__put"];
-        post?: never;
-        /** Delete crm.team */
-        delete: operations["delete_record_api_crm_team__record_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/leads/kanban": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Leads Kanban
-         * @description Group leads by stage for the kanban view.
-         */
-        get: operations["leads_kanban_api_crm_leads_kanban_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/lead/{lead_id}/move": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Move Lead
-         * @description Move a lead to a different stage.
-         */
-        post: operations["move_lead_api_crm_lead__lead_id__move_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/crm/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Crm Stats
-         * @description Dashboard statistics for CRM.
-         */
-        get: operations["crm_stats_api_crm_stats_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1655,7 +1327,7 @@ export interface paths {
          * Upsert Credential
          * @description Store or update a provider credential for the caller's tenant.
          *
-         *     Body: `{ "provider": "anthropic|openai|ollama",
+         *     Body: `{ "provider": "anthropic|openai|ollama|gemini",
          *              "secret": "<api-key>",
          *              "model_default": "claude-3-5-sonnet-latest",
          *              "monthly_token_budget": 1000000 }`
@@ -1881,6 +1553,23 @@ export interface components {
              */
             description: string;
         };
+        /** Body_upload_attachment_api_base_attachments_post */
+        Body_upload_attachment_api_base_attachments_post: {
+            /** File */
+            file: string;
+            /** Res Model */
+            res_model: string;
+            /**
+             * Res Id
+             * Format: uuid
+             */
+            res_id: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
         /** CompanyRead */
         CompanyRead: {
             /**
@@ -1931,62 +1620,10 @@ export interface components {
             /** Groups */
             groups: string[];
         };
-        /** DocumentSequenceRead */
-        DocumentSequenceRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Code */
-            code: string;
-            /** Prefix */
-            prefix: string | null;
-            /** Padding */
-            padding: number;
-            /** Number Next */
-            number_next: number;
-        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
-        };
-        /** LeadRead */
-        LeadRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Person Id */
-            person_id?: string | null;
-            /** Stage Id */
-            stage_id?: string | null;
-            /** Assigned User Id */
-            assigned_user_id?: string | null;
-            /** Assigned Team Id */
-            assigned_team_id?: string | null;
-            /** Expected Revenue */
-            expected_revenue: number;
-            /** Probability */
-            probability: number;
-            /** Expected Close Date */
-            expected_close_date?: string | null;
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /**
-             * Tags
-             * @default []
-             */
-            tags: string[];
         };
         /** LoginRequest */
         LoginRequest: {
@@ -2084,30 +1721,6 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
-        /** PartnerRead */
-        PartnerRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Tenant Id */
-            tenant_id: string | null;
-            /** Name */
-            name: string;
-            /** Email */
-            email: string | null;
-            /** Phone */
-            phone: string | null;
-            /** City */
-            city: string | null;
-            /** Country Code */
-            country_code: string;
-            /** Is Company */
-            is_company: boolean;
-            /** Vat */
-            vat: string | null;
-        };
         /** PasswordResetConfirmPayload */
         PasswordResetConfirmPayload: {
             /** Token */
@@ -2119,44 +1732,6 @@ export interface components {
         PasswordResetRequestPayload: {
             /** Email */
             email: string;
-        };
-        /** PersonRead */
-        PersonRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Email */
-            email?: string | null;
-            /** Phone */
-            phone?: string | null;
-            /** Mobile */
-            mobile?: string | null;
-            /** Kind */
-            kind: string;
-            /** Is Company */
-            is_company: boolean;
-            /** Assigned User Id */
-            assigned_user_id?: string | null;
-            /** Assigned Team Id */
-            assigned_team_id?: string | null;
-            /**
-             * Tags
-             * @default []
-             */
-            tags: string[];
-            /**
-             * Source
-             * @default
-             */
-            source: string;
-            /** Create Date */
-            create_date?: string | null;
-            /** Write Date */
-            write_date?: string | null;
         };
         /** RecordRuleRead */
         RecordRuleRead: {
@@ -2204,30 +1779,6 @@ export interface components {
             /** Tenant Slug */
             tenant_slug: string;
         };
-        /** RegistryModelFieldRead */
-        RegistryModelFieldRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Model Name */
-            model_name: string;
-            /** Field Name */
-            field_name: string;
-            /** Field Type */
-            field_type: string;
-            /** Label */
-            label: string | null;
-            /** Required */
-            required: boolean;
-            /** Readonly */
-            readonly: boolean;
-            /** Is Custom */
-            is_custom: boolean;
-            /** Related Model */
-            related_model: string | null;
-        };
         /** RegistryModelRead */
         RegistryModelRead: {
             /**
@@ -2264,50 +1815,6 @@ export interface components {
             /** Active */
             active: boolean;
         };
-        /** ScheduledJobRead */
-        ScheduledJobRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Model Name */
-            model_name: string | null;
-            /** Function Name */
-            function_name: string | null;
-            /** Interval Number */
-            interval_number: number;
-            /** Interval Type */
-            interval_type: string;
-            /** Is Active */
-            is_active: boolean;
-            /** Next Call */
-            next_call: string | null;
-            /** Temporal Schedule Id */
-            temporal_schedule_id: string | null;
-        };
-        /** StageRead */
-        StageRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Sequence */
-            sequence: number;
-            /** Probability */
-            probability: number;
-            /** Is Won */
-            is_won: boolean;
-            /** Is Lost */
-            is_lost: boolean;
-            /** Fold In Kanban */
-            fold_in_kanban: boolean;
-        };
         /** TOTPSetupResponse */
         TOTPSetupResponse: {
             /** Secret */
@@ -2319,43 +1826,6 @@ export interface components {
         TOTPVerifyRequest: {
             /** Code */
             code: string;
-        };
-        /** TeamRead */
-        TeamRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Description */
-            description: string;
-            /** Leader User Id */
-            leader_user_id?: string | null;
-            /**
-             * Member User Ids
-             * @default []
-             */
-            member_user_ids: string[];
-        };
-        /** TenantRead */
-        TenantRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Slug */
-            slug: string;
-            /** Plan */
-            plan: string;
-            /** Is Active */
-            is_active: boolean;
-            /** Create Date */
-            create_date?: string | null;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -2383,47 +1853,21 @@ export interface components {
                 [key: string]: unknown;
             }[] | null;
         };
-        /** UiMenuRead */
-        UiMenuRead: {
+        /** UiTranslationRead */
+        UiTranslationRead: {
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Name */
-            name: string;
-            /** Parent Id */
-            parent_id: string | null;
-            /** Sequence */
-            sequence: number;
-            /** Icon */
-            icon: string | null;
-            /** Groups */
-            groups: string[];
-        };
-        /** UiViewRead */
-        UiViewRead: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Model */
-            model: string;
-            /** Type */
-            type: string;
-            /** Arch */
-            arch: string;
-            /** Inherit Id */
-            inherit_id: string | null;
-            /** Priority */
-            priority: number;
-            /** Active */
-            active: boolean;
+            /** Lang */
+            lang: string;
             /** Module */
-            module: string | null;
+            module: string;
+            /** Msg Key */
+            msg_key: string;
+            /** Value */
+            value: string;
         };
         /** UserRead */
         UserRead: {
@@ -2449,7 +1893,13 @@ export interface components {
             /** Totp Enabled */
             totp_enabled: boolean;
             /** Last Login */
-            last_login: string | null;
+            last_login?: string | null;
+            /** Last Login Device */
+            last_login_device?: string | null;
+            /** Company Ids */
+            company_ids?: string[];
+            /** Role Ids */
+            role_ids?: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -2518,158 +1968,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_records_api_base_tenant_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_base_tenant_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TenantRead"];
-                };
-            };
-        };
-    };
-    get_record_api_base_tenant__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_base_tenant__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TenantRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_base_tenant__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_records_api_base_company_get: {
         parameters: {
             query?: {
@@ -2794,158 +2092,6 @@ export interface operations {
         };
     };
     delete_record_api_base_company__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_records_api_base_partner_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_base_partner_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartnerRead"];
-                };
-            };
-        };
-    };
-    get_record_api_base_partner__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_base_partner__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartnerRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_base_partner__record_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -3430,158 +2576,6 @@ export interface operations {
             };
         };
     };
-    list_records_api_base_registry_model_field_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_base_registry_model_field_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RegistryModelFieldRead"];
-                };
-            };
-        };
-    };
-    get_record_api_base_registry_model_field__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_base_registry_model_field__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RegistryModelFieldRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_base_registry_model_field__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_records_api_base_model_access_get: {
         parameters: {
             query?: {
@@ -3886,310 +2880,6 @@ export interface operations {
             };
         };
     };
-    list_records_api_base_ui_menu_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_base_ui_menu_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UiMenuRead"];
-                };
-            };
-        };
-    };
-    get_record_api_base_ui_menu__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_base_ui_menu__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UiMenuRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_base_ui_menu__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_records_api_base_sequence_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_base_sequence_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentSequenceRead"];
-                };
-            };
-        };
-    };
-    get_record_api_base_sequence__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_base_sequence__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentSequenceRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_base_sequence__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_records_api_base_config_param_get: {
         parameters: {
             query?: {
@@ -4342,7 +3032,7 @@ export interface operations {
             };
         };
     };
-    list_records_api_base_scheduled_job_get: {
+    list_records_api_base_ui_translation_get: {
         parameters: {
             query?: {
                 offset?: number;
@@ -4380,7 +3070,7 @@ export interface operations {
             };
         };
     };
-    create_record_api_base_scheduled_job_post: {
+    create_record_api_base_ui_translation_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4395,12 +3085,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScheduledJobRead"];
+                    "application/json": components["schemas"]["UiTranslationRead"];
                 };
             };
         };
     };
-    get_record_api_base_scheduled_job__record_id__get: {
+    get_record_api_base_ui_translation__record_id__get: {
         parameters: {
             query?: {
                 /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
@@ -4434,7 +3124,7 @@ export interface operations {
             };
         };
     };
-    update_record_api_base_scheduled_job__record_id__put: {
+    update_record_api_base_ui_translation__record_id__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -4451,7 +3141,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScheduledJobRead"];
+                    "application/json": components["schemas"]["UiTranslationRead"];
                 };
             };
             /** @description Validation Error */
@@ -4465,159 +3155,7 @@ export interface operations {
             };
         };
     };
-    delete_record_api_base_scheduled_job__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_records_api_base_ui_view_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_base_ui_view_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UiViewRead"];
-                };
-            };
-        };
-    };
-    get_record_api_base_ui_view__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_base_ui_view__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UiViewRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_base_ui_view__record_id__delete: {
+    delete_record_api_base_ui_translation__record_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -5095,6 +3633,199 @@ export interface operations {
             };
         };
     };
+    list_attachments_api_base_attachments_get: {
+        parameters: {
+            query?: {
+                /** @description Search attachment name (ilike) */
+                q?: string | null;
+                res_model?: string | null;
+                res_id?: string | null;
+                mimetype?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_attachment_api_base_attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_api_base_attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_attachment_metadata_api_base_attachments__attachment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_attachment_api_base_attachments__attachment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_attachment_api_base_attachments__attachment_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purge_orphan_attachments_api_base_attachments_purge_orphans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     list_webhooks_api_base_webhooks_get: {
         parameters: {
             query?: never;
@@ -5521,6 +4252,61 @@ export interface operations {
             };
         };
     };
+    list_ui_locales_api_base_i18n_locales_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_ui_messages_api_base_i18n_messages__lang__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lang: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reload_rbac_api_base_rbac_reload_post: {
         parameters: {
             query?: never;
@@ -5897,693 +4683,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryCodesResponse"];
-                };
-            };
-        };
-    };
-    list_records_api_crm_person_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_crm_person_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PersonRead"];
-                };
-            };
-        };
-    };
-    get_record_api_crm_person__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_crm_person__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PersonRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_crm_person__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_records_api_crm_lead_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_crm_lead_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeadRead"];
-                };
-            };
-        };
-    };
-    get_record_api_crm_lead__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_crm_lead__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeadRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_crm_lead__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_records_api_crm_stage_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_crm_stage_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StageRead"];
-                };
-            };
-        };
-    };
-    get_record_api_crm_stage__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_crm_stage__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StageRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_crm_stage__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_records_api_crm_team_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-                limit?: number;
-                order_by?: string | null;
-                order_dir?: string;
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key in the response (e.g. expand=person_id adds person_id__name). */
-                expand?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_record_api_crm_team_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamRead"];
-                };
-            };
-        };
-    };
-    get_record_api_crm_team__record_id__get: {
-        parameters: {
-            query?: {
-                /** @description Comma-separated many2one fields to resolve. Each field gains a sibling `<field>__name` key. */
-                expand?: string | null;
-            };
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_record_api_crm_team__record_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_record_api_crm_team__record_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    leads_kanban_api_crm_leads_kanban_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    move_lead_api_crm_lead__lead_id__move_post: {
-        parameters: {
-            query: {
-                stage_id: string;
-            };
-            header?: never;
-            path: {
-                lead_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    crm_stats_api_crm_stats_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
                 };
             };
         };
