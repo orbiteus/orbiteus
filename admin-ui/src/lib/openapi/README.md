@@ -14,7 +14,7 @@ Outputs:
 
 - `openapi.json` — committed API snapshot (drift check input)
 - `schema.ts` — generated types (`openapi-typescript`)
-- `client.ts` — thin re-exports (`CrmLead`, `CrmPerson`, …)
+- `client.ts` — thin re-exports (`AgentRead`, `ApiListEnvelope`, …)
 - `resources.ts` — typed CRM fetch helpers (showcase module)
 
 ## Drift check

@@ -1,5 +1,5 @@
 /**
- * Typed OpenAPI surface for Tier B CRM routes and new admin-ui code.
+ * Typed OpenAPI surface for admin-ui code.
  *
  * Regenerate when the API changes:
  *   npm run codegen --workspace admin-ui
@@ -20,8 +20,5 @@ export type ApiListEnvelope<T> = {
   offset?: number;
 };
 
-/** CRM showcase models (generated from OpenAPI). */
-export type CrmLead = ApiSchemas["LeadRead"];
-export type CrmPerson = ApiSchemas["PersonRead"];
-export type CrmStage = ApiSchemas["StageRead"];
-export type CrmTeam = ApiSchemas["TeamRead"];
+/** Base agent resource (generated from OpenAPI). */
+export type AgentRead = ApiSchemas["AgentRead"];
