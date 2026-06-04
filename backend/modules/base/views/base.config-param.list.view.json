@@ -1,0 +1,9 @@
+{
+  "model": "base.config-param",
+  "type": "list",
+  "columns": [
+    { "key": "key", "label": "Key" },
+    { "key": "value", "label": "Value" },
+    { "key": "description", "label": "Description" }
+  ]
+}

@@ -3,6 +3,7 @@
 import { ActionIcon, Group, Loader, Stack, Text, TextInput } from "@mantine/core";
 import { IconAlertTriangle, IconArrowUp } from "@tabler/icons-react";
 import { useState } from "react";
+import { useT } from "@orbiteus/i18n";
 
 import type { AIScope } from "./types";
 import { useAIContext } from "./useAIContext";
@@ -10,14 +11,27 @@ import { useAIContext } from "./useAIContext";
 interface Props {
   scope: AIScope;
   placeholder?: string;
+  agentId?: string;
+  stream?: boolean;
 }
 
 /**
  * Embeddable prompt input. Drop into any page to enable AI on that surface.
  * Renders a graceful empty state when no AI credential is configured.
  */
-export function PromptInput({ scope, placeholder = "Ask the assistant…" }: Props) {
-  const { messages, loading, error, hasCredential, send } = useAIContext(scope);
+export function PromptInput({
+  scope,
+  placeholder,
+  agentId,
+  stream = false,
+}: Props) {
+  const t = useT();
+  const { messages, loading, error, hasCredential, send } = useAIContext({
+    scope,
+    agentId,
+    stream,
+  });
+  const resolvedPlaceholder = placeholder ?? t("ai.promptInput.placeholder");
   const [draft, setDraft] = useState("");
 
   if (hasCredential === false) {
@@ -26,8 +40,7 @@ export function PromptInput({ scope, placeholder = "Ask the assistant…" }: Pro
         <Group gap={6}>
           <IconAlertTriangle size={16} />
           <Text size="sm" c="dimmed">
-            AI is not configured for this tenant. Add a provider key under
-            <Text span fw={600}> /api/ai/credentials</Text>.
+            {t("ai.promptInput.noCredential")} <Text span fw={600}>/api/ai/credentials</Text>.
           </Text>
         </Group>
       </Stack>
@@ -50,7 +63,7 @@ export function PromptInput({ scope, placeholder = "Ask the assistant…" }: Pro
       <Group gap="xs" wrap="nowrap" align="end">
         <TextInput
           flex={1}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           value={draft}
           onChange={(e) => setDraft(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -73,7 +86,7 @@ export function PromptInput({ scope, placeholder = "Ask the assistant…" }: Pro
                 setDraft("");
               }
             }}
-            aria-label="Send"
+            aria-label={t("ai.promptInput.send")}
           >
             <IconArrowUp size={16} />
           </ActionIcon>

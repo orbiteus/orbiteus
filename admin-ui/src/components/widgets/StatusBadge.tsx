@@ -2,13 +2,13 @@
 import { Badge } from "@mantine/core";
 
 const STATUS_COLORS: Record<string, string> = {
-  lead: "gray",
+  lead: "cyan",
   prospect: "blue",
   customer: "green",
   churned: "red",
   inactive: "gray",
   draft: "gray",
-  qualified: "blue",
+  qualified: "indigo",
   proposal: "violet",
   won: "green",
   lost: "red",

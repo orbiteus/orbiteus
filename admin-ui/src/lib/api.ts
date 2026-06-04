@@ -19,12 +19,18 @@ export interface FieldMeta {
     | "date"
     | "many2one"
     | "monetary"
-    | "tags";
+    | "tags"
+    | "multi_select"
+    | "many2many";
   required: boolean;
   label: string;
   /** Target model for many2one, e.g. crm.customer */
   relation?: string;
   options?: { value: string; label: string }[];
+  /** Load select options from a list API, e.g. base/role */
+  optionsResource?: string;
+  optionValue?: string;
+  optionLabel?: string;
   /** ISO-4217 code for monetary fields (e.g. "PLN", "EUR"). */
   currency_code?: string;
 }
@@ -32,16 +38,39 @@ export interface FieldMeta {
 export interface ModelConfig {
   name: string;
   label: string;
+  /** Omitted from app catalog; still available via Technical / Settings links. */
+  ui_hidden?: boolean;
   fields: FieldMeta[];
   views: {
-    list: string | null;
-    form: string | null;
-    kanban: string | null;
+    list: string | JsonListView | null;
+    form: string | JsonFormView | null;
+    kanban: string | JsonKanbanView | null;
     search: string | null;
     calendar: string | null;
     graph: string | null;
   };
 }
+
+/** JSON view payloads from ui-config (ADR-0022). */
+export type JsonListView = {
+  model: string;
+  type: "list";
+  columns: { key: string; label?: string; widget?: string }[];
+};
+
+export type JsonFormView = {
+  model: string;
+  type: "form";
+  sections?: { title?: string; fields: string[] }[];
+  tabs?: { title: string; sections: { title?: string; fields: string[] }[] }[];
+};
+
+export type JsonKanbanView = {
+  model: string;
+  type: "kanban";
+  group_by: string;
+  card_fields?: string[];
+};
 
 export interface ModuleConfig {
   name: string;
@@ -143,31 +172,136 @@ api.interceptors.response.use(
   }
 );
 
-export async function fetchList(resource: string, params?: Record<string, unknown>) {
-  const { data } = await api.get(`/${resource}`, { params });
-  return data; // { items, total, offset, limit }
+/** Must stay aligned with `auto_router.py` list `Query(..., le=200)`. */
+export const LIST_PAGE_MAX = 200;
+
+export interface ListResponse<T = unknown> {
+  items: T[];
+  total?: number;
+  offset?: number;
+  limit?: number;
 }
 
-export async function fetchOne(resource: string, id: string) {
-  const { data } = await api.get(`/${resource}/${id}`);
+export async function fetchList<T = unknown>(
+  resource: string,
+  params?: Record<string, unknown>,
+): Promise<ListResponse<T>> {
+  const { data } = await api.get<ListResponse<T>>(`/${resource}`, { params });
+  return data;
+}
+
+/** Walks paginated list endpoints until all rows are loaded (cap 10k rows). */
+export async function fetchAllListItems<T = unknown>(
+  resource: string,
+  params?: Record<string, unknown>,
+  maxRows = 10_000,
+): Promise<T[]> {
+  const items: T[] = [];
+  let offset = 0;
+
+  while (items.length < maxRows) {
+    const limit = Math.min(LIST_PAGE_MAX, maxRows - items.length);
+    const page = await fetchList<T>(resource, { ...params, offset, limit });
+    const batch = page.items ?? [];
+    items.push(...batch);
+
+    const total = page.total ?? items.length;
+    offset += batch.length;
+    if (batch.length === 0 || offset >= total) break;
+  }
+
+  return items;
+}
+
+export const USER_FACING_API_ERROR_DEFAULT = "Request failed";
+
+const MAX_USER_DETAIL_LEN = 220;
+
+/** True when API detail text is safe to show in UI (no HTML/proxy noise). */
+export function isUserFacingApiDetailSafe(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > MAX_USER_DETAIL_LEN) return false;
+  const lower = t.toLowerCase();
+  if (lower.includes("<!doctype") || lower.includes("<html") || lower.includes("</")) return false;
+  if (lower.includes("traceback") || lower.includes("internal server")) return false;
+  if (lower.includes("nginx") || lower.includes("bad gateway")) return false;
+  if (lower === "network error" || lower.includes("failed to fetch")) return false;
+  if (/^api\s+\d{3}\s*$/i.test(t)) return false;
+  return true;
+}
+
+function detailFromAxios(err: import("axios").AxiosError): string | null {
+  const d = err.response?.data as { detail?: unknown } | undefined;
+  const detail = d?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail.trim();
+  if (Array.isArray(detail) && detail[0]?.msg) return String(detail[0].msg);
+  return null;
+}
+
+/** User-safe message for toasts and form banners (CalTrain-style filtering). */
+export function extractApiError(err: unknown, fallback = USER_FACING_API_ERROR_DEFAULT): string {
+  const fb = fallback.trim() || USER_FACING_API_ERROR_DEFAULT;
+  if (!axios.isAxiosError(err)) {
+    if (err instanceof Error && isUserFacingApiDetailSafe(err.message)) return err.message.trim();
+    return fb;
+  }
+  const raw = detailFromAxios(err);
+  if (raw && isUserFacingApiDetailSafe(raw)) return raw;
+  if (err.message === "Network Error") return fb;
+  return fb;
+}
+
+export function apiErrorMessage(err: unknown, fallback = "Request failed"): string {
+  return extractApiError(err, fallback);
+}
+
+export async function fetchOne<T = Record<string, unknown>>(
+  resource: string,
+  id: string,
+  params?: Record<string, unknown>,
+): Promise<T> {
+  const { data } = await api.get<T>(`/${resource}/${id}`, {
+    params,
+    skipGlobalErrorToast: true,
+  });
   return data;
 }
 
 export async function createRecord(resource: string, payload: unknown) {
-  const { data } = await api.post(`/${resource}`, payload);
+  const { data } = await api.post(`/${resource}`, payload, { skipGlobalErrorToast: true });
   return data;
 }
 
 export async function updateRecord(resource: string, id: string, payload: unknown) {
-  const { data } = await api.put(`/${resource}/${id}`, payload);
+  const { data } = await api.put(`/${resource}/${id}`, payload, { skipGlobalErrorToast: true });
   return data;
 }
 
 export async function deleteRecord(resource: string, id: string) {
-  await api.delete(`/${resource}/${id}`);
+  await api.delete(`/${resource}/${id}`, { skipGlobalErrorToast: true });
 }
 
 export async function fetchUiConfig(): Promise<UiConfig> {
   const { data } = await api.get("/base/ui-config");
   return data;
+}
+
+export type UiLocaleMeta = {
+  code: string;
+  label: string;
+  dayjs: string;
+  source: "core" | "module";
+  module: string;
+};
+
+export async function fetchUiLocales(): Promise<UiLocaleMeta[]> {
+  const { data } = await api.get<{ locales: UiLocaleMeta[] }>("/base/i18n/locales");
+  return data.locales;
+}
+
+export async function fetchUiMessages(lang: string): Promise<Record<string, string>> {
+  const { data } = await api.get<{ lang: string; messages: Record<string, string> }>(
+    `/base/i18n/messages/${encodeURIComponent(lang)}`,
+  );
+  return data.messages;
 }

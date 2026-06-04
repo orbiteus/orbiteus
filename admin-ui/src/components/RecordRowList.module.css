@@ -1,0 +1,87 @@
+.panel {
+  overflow: hidden;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+}
+
+.header {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  background: color-mix(in srgb, var(--mantine-color-default-hover) 65%, transparent);
+}
+
+.headerButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.headerButton:hover .headerLabel {
+  color: var(--mantine-color-text);
+}
+
+.headerLabel {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mantine-color-dimmed);
+  transition: color 100ms ease;
+}
+
+.row {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 14px;
+  min-height: 42px;
+  border-bottom: 1px solid color-mix(in srgb, var(--mantine-color-default-border) 70%, transparent);
+  text-decoration: none;
+  color: inherit;
+  transition: background 90ms ease;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowInteractive:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.rowInteractive:hover .actions {
+  opacity: 1;
+}
+
+.primaryCell {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.secondaryCell {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.35;
+  transition: opacity 100ms ease;
+}
+
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+}

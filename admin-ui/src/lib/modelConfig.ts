@@ -1,19 +1,41 @@
 import { fetchUiConfig, type UiConfig, type ModelConfig, type FieldMeta } from "./api";
+import { getQueryClient } from "./queryClient";
+import { queryKeys } from "./queryKeys";
 import { parseListView, parseFormView, parseFormLayout } from "./viewParser";
+import {
+  isJsonView,
+  parseJsonFormLayout,
+  parseJsonFormView,
+  parseJsonListView,
+} from "./viewJson";
 import type { ColumnDef } from "./viewParser";
 import type { FieldDef } from "@/components/ResourceForm";
 
-// Module-level cache — fetched once per session
+// Legacy Promise cache — prefer useUiConfig() / TanStack Query.
 let _cache: Promise<UiConfig> | null = null;
 
 export function getCachedUiConfig(): Promise<UiConfig> {
+  const qc = getQueryClient();
+  const cached = qc.getQueryData<UiConfig>(queryKeys.uiConfig());
+  if (cached) return Promise.resolve(cached);
   if (!_cache) {
-    _cache = fetchUiConfig().catch((err) => {
-      _cache = null; // allow retry on failure
-      throw err;
-    });
+    _cache = fetchUiConfig()
+      .then((data) => {
+        qc.setQueryData(queryKeys.uiConfig(), data);
+        return data;
+      })
+      .catch((err) => {
+        _cache = null;
+        throw err;
+      });
   }
   return _cache;
+}
+
+/** Clear ui-config cache after module enable/disable. */
+export function invalidateUiConfigCache(): void {
+  _cache = null;
+  getQueryClient().invalidateQueries({ queryKey: queryKeys.uiConfig() });
 }
 
 export function findModel(cfg: UiConfig, mod: string, model: string): ModelConfig | null {
@@ -23,14 +45,20 @@ export function findModel(cfg: UiConfig, mod: string, model: string): ModelConfi
   return modCfg.models.find((m) => m.name === key) ?? null;
 }
 
-/** Build list columns: XML view override → auto-generated from schema fields */
+/** Build list columns: JSON view → XML fallback → auto-generated from schema */
 export function modelToColumns(m: ModelConfig): ColumnDef[] {
   if (m.views.list) {
-    const cols = parseListView(m.views.list);
-    if (cols.length > 0) return cols;
+    if (isJsonView(m.views.list)) {
+      const cols = parseJsonListView(m.views.list);
+      if (cols.length > 0) return cols;
+    } else if (typeof m.views.list === "string") {
+      const cols = parseListView(m.views.list);
+      if (cols.length > 0) return cols;
+    }
   }
+  const skipInList = new Set(["password", "password_hash", "description", "notes", "body"]);
   return m.fields
-    .filter((f) => f.type !== "textarea") // skip long-text fields in list
+    .filter((f) => f.type !== "textarea" && !skipInList.has(f.name))
     .map((f) => ({
       key: f.name,
       label: f.label,
@@ -38,11 +66,16 @@ export function modelToColumns(m: ModelConfig): ColumnDef[] {
     }));
 }
 
-/** Build form fields: XML view override merged with schema metadata (many2one, monetary, …) */
+/** Build form fields: JSON/XML view override merged with schema metadata */
 export function modelToFields(m: ModelConfig): FieldDef[] {
   const metaByName = new Map(m.fields.map((f) => [f.name, f]));
   if (m.views.form) {
-    const fields = parseFormView(m.views.form);
+    let fields: FieldDef[] = [];
+    if (isJsonView(m.views.form)) {
+      fields = parseJsonFormView(m.views.form);
+    } else if (typeof m.views.form === "string") {
+      fields = parseFormView(m.views.form);
+    }
     if (fields.length > 0) {
       return fields.map((f) => enrichFieldDef(f, metaByName.get(f.key)));
     }
@@ -51,6 +84,28 @@ export function modelToFields(m: ModelConfig): FieldDef[] {
 }
 
 function fieldMetaToFieldDef(f: FieldMeta): FieldDef {
+  if (f.type === "many2many") {
+    return {
+      key: f.name,
+      label: f.label,
+      type: "many2many",
+      required: f.required,
+      relation: f.relation,
+      optionValue: f.optionValue,
+      optionLabel: f.optionLabel,
+    };
+  }
+  if (f.type === "multi_select") {
+    return {
+      key: f.name,
+      label: f.label,
+      type: "multi_select",
+      required: f.required,
+      optionsResource: f.optionsResource,
+      optionValue: f.optionValue,
+      optionLabel: f.optionLabel,
+    };
+  }
   if (f.type === "tags") {
     return {
       key: f.name,
@@ -77,10 +132,40 @@ export interface FormPanels {
   tabs?: { title: string; sections: { title?: string; fields: FieldDef[] }[] }[];
 }
 
-/** Form fields + optional grouped panels from XML layout (groups / notebook). */
+/** Form fields + optional grouped panels from JSON or XML layout. */
 export function modelToFormStructure(m: ModelConfig): { fields: FieldDef[]; panels?: FormPanels } {
   const fields = modelToFields(m);
   if (!m.views.form) return { fields };
+
+  if (isJsonView(m.views.form)) {
+    const rawLayout = parseJsonFormLayout(m.views.form);
+    if (!rawLayout) return { fields };
+    const byKey = new Map(fields.map((f) => [f.key, f]));
+    const pick = (keys: string[]) => keys.map((k) => byKey.get(k)).filter(Boolean) as FieldDef[];
+
+    if (rawLayout.tabs?.length) {
+      const tabs = rawLayout.tabs.map((t) => ({
+        title: t.title,
+        sections: t.sections.map((s) => ({
+          title: s.title,
+          fields: pick(s.fields.map((f) => f.key)),
+        })).filter((s) => s.fields.length),
+      }));
+      const panels: FormPanels = { tabs: _appendOrphanTabs(fields, tabs) };
+      return { fields, panels };
+    }
+    if (rawLayout.sections?.length) {
+      const sections = rawLayout.sections.map((s) => ({
+        title: s.title,
+        fields: pick(s.fields.map((f) => f.key)),
+      })).filter((s) => s.fields.length);
+      const panels: FormPanels = { sections: _appendOrphanSections(fields, sections) };
+      return { fields, panels };
+    }
+    return { fields };
+  }
+
+  if (typeof m.views.form !== "string") return { fields };
   const layout = parseFormLayout(m.views.form);
   if (!layout || layout.kind === "flat") return { fields };
 
@@ -142,6 +227,24 @@ function enrichFieldDef(field: FieldDef, meta?: FieldMeta): FieldDef {
   if (meta.type === "tags") {
     return { ...field, type: "tags" };
   }
+  if (meta.type === "many2many") {
+    return {
+      ...field,
+      type: "many2many",
+      relation: meta.relation ?? field.relation,
+      optionValue: meta.optionValue ?? field.optionValue,
+      optionLabel: meta.optionLabel ?? field.optionLabel,
+    };
+  }
+  if (meta.type === "multi_select") {
+    return {
+      ...field,
+      type: "multi_select",
+      optionsResource: meta.optionsResource ?? field.optionsResource,
+      optionValue: meta.optionValue ?? field.optionValue,
+      optionLabel: meta.optionLabel ?? field.optionLabel,
+    };
+  }
   if (meta.type === "many2one" || meta.type === "monetary") {
     return {
       ...field,
@@ -163,5 +266,8 @@ function enrichFieldDef(field: FieldDef, meta?: FieldMeta): FieldDef {
     ...field,
     relation: meta.relation ?? field.relation,
     options: field.options ?? meta.options,
+    optionsResource: meta.optionsResource ?? field.optionsResource,
+    optionValue: meta.optionValue ?? field.optionValue,
+    optionLabel: meta.optionLabel ?? field.optionLabel,
   };
 }

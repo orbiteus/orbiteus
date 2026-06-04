@@ -30,8 +30,8 @@ export default function StatusbarField({ label, value, options, onChange, readOn
               style={{
                 padding: "6px 12px",
                 borderRadius: "var(--mantine-radius-sm)",
-                border: `1px solid ${active ? "var(--mantine-color-blue-filled)" : "var(--mantine-color-default-border)"}`,
-                background: active ? "var(--mantine-color-blue-light)" : "var(--mantine-color-body)",
+                border: `1px solid ${active ? "var(--mantine-color-dark-filled)" : "var(--mantine-color-default-border)"}`,
+                background: active ? "var(--mantine-color-dark-light)" : "var(--mantine-color-body)",
               }}
             >
               <Text size="sm" fw={active ? 600 : 400}>

@@ -13,6 +13,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { useT } from "@orbiteus/i18n";
 import { api } from "@/lib/api";
 
 /**
@@ -23,6 +24,7 @@ import { api } from "@/lib/api";
  * leaking enumeration data through the UI.
  */
 export default function ForgotPasswordPage() {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,21 +53,18 @@ export default function ForgotPasswordPage() {
       <Container size="sm" py="xl">
         <Card shadow="sm" padding="xl" radius="md" withBorder>
           <Stack gap="md">
-            <Title order={2}>Reset your password</Title>
+            <Title order={2}>{t("auth.forgot.title")}</Title>
             {submitted ? (
               <Stack gap="sm">
                 <Text>
-                  If an account exists for that address, an email is on its
-                  way with a link to reset the password. The link expires in
-                  30 minutes.
+                  {t("auth.forgot.successBody")}
                 </Text>
                 <Text size="sm" c="dimmed">
-                  Didn’t receive anything? Check your spam folder, then
-                  request again in a minute.
+                  {t("auth.forgot.successHint")}
                 </Text>
                 <Group>
                   <Anchor href="/login" size="sm">
-                    Back to sign in
+                    {t("auth.forgot.backToSignIn")}
                   </Anchor>
                 </Group>
               </Stack>
@@ -73,11 +72,10 @@ export default function ForgotPasswordPage() {
               <form onSubmit={handleSubmit}>
                 <Stack gap="sm">
                   <Text>
-                    Enter the email associated with your Orbiteus account.
-                    We’ll send you a link to set a new password.
+                    {t("auth.forgot.intro")}
                   </Text>
                   <TextInput
-                    label="Email"
+                    label={t("auth.email")}
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -91,10 +89,10 @@ export default function ForgotPasswordPage() {
                   ) : null}
                   <Group justify="space-between" mt="xs">
                     <Anchor href="/login" size="sm" c="dark">
-                      Back to sign in
+                      {t("auth.forgot.backToSignIn")}
                     </Anchor>
                     <Button type="submit" loading={loading} color="dark">
-                      Send reset link
+                      {t("auth.forgot.sendLink")}
                     </Button>
                   </Group>
                 </Stack>

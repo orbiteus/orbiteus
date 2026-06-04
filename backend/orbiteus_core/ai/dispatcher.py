@@ -106,15 +106,13 @@ async def dispatch_tool_call(
     """
     args = arguments or {}
 
-    # Read tools — the chat layer doesn't auto-execute them today;
-    # the AI is meant to call them only when it needs grounding,
-    # and the next turn should pass the result back via the prompt
-    # (multi-turn lands post-v1.0).
     if name.startswith("read_"):
-        return {"status": "skipped", "reason": "read tool — execute via repo on next turn"}
+        from orbiteus_core.ai.query_executor import execute_read_tool
+        return await execute_read_tool(session, ctx, tool_name=name, arguments=args)
 
     if name == "semantic_search":
-        return {"status": "skipped", "reason": "semantic_search — wired in the embeddings wave"}
+        from orbiteus_core.ai.query_executor import execute_semantic_search
+        return await execute_semantic_search(session, ctx, arguments=args)
 
     action_id = _action_id_from_tool_name(name)
     handler = _HANDLERS.get(action_id)

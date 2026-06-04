@@ -61,13 +61,71 @@ services:
       RUN_MIGRATIONS: "1"
       USE_GUNICORN: "0"
       UVICORN_RELOAD: "1"
+      # Attachment filestore — binaries live outside Postgres (see docs/07-api.md).
+      ATTACHMENT_STORAGE: local
+      ATTACHMENT_STORAGE_PATH: /data/attachments
+      # ATTACHMENT_MAX_BYTES: "52428800"   # optional; default 50 MiB
+      # Demo dataset — curated companies, users, real attachments (see scripts/seed_demo.py).
+      # First run after old bulk seed: set BOTH to 1 once, then leave RESET at 0.
+      SEED_DEMO_DATA: "${SEED_DEMO_DATA:-0}"
+      RESET_DEMO_DATA: "${RESET_DEMO_DATA:-0}"
     volumes:
       - ./backend:/app
+      - attachment_data:/data/attachments
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://orbiteus:orbiteus@postgres:5432/orbiteus
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: change-me-in-development
+      AI_SECRET_KEY: change-me-in-development
+      ENVIRONMENT: development
+      DEBUG: "true"
+      USE_GUNICORN: "0"
+      PYTHONPATH: /app
+    volumes:
+      - ./backend:/app
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "celery -A celery_app worker -l info -Q default,outbox"]
+    restart: unless-stopped
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://orbiteus:orbiteus@postgres:5432/orbiteus
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: change-me-in-development
+      AI_SECRET_KEY: change-me-in-development
+      ENVIRONMENT: development
+      DEBUG: "true"
+      USE_GUNICORN: "0"
+      PYTHONPATH: /app
+    volumes:
+      - ./backend:/app
+    depends_on:
+      worker:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    # Schedule file must NOT live under ./backend — Turbopack watches the
+    # monorepo root and would restart the admin-ui dev server on every tick.
+    entrypoint: ["sh", "-c", "celery -A celery_app beat -l info --schedule=/tmp/celerybeat-schedule"]
+    restart: unless-stopped
 
   frontend:
     build:
@@ -76,15 +134,33 @@ services:
       dockerfile: admin-ui/Dockerfile
     ports:
       - "3000:3000"
+    stdin_open: true
+    tty: true
     environment:
       BACKEND_URL: http://backend:8000
+      # Turbopack watches the monorepo root; polling avoids Docker Desktop
+      # file-event storms that restart `next dev` mid-request (breaks login).
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      NODE_OPTIONS: "--max-old-space-size=4096"
     volumes:
       - ./admin-ui:/app/admin-ui
+      - ./packages/i18n:/app/packages/i18n
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./scripts/ensure-npm-deps.sh:/app/scripts/ensure-npm-deps.sh:ro
+      - /app/node_modules
       - /app/admin-ui/node_modules
       - /app/admin-ui/.next
     depends_on:
       - backend
-    command: npm run dev -- --hostname 0.0.0.0
+    command:
+      [
+        "sh",
+        "-c",
+        "sh /app/scripts/ensure-npm-deps.sh /app && cd /app/admin-ui && exec npx next dev --hostname 0.0.0.0",
+      ]
+    restart: unless-stopped
 
   portal:
     build:
@@ -96,12 +172,23 @@ services:
       BACKEND_URL: http://backend:8000
     volumes:
       - ./portal-ui:/app/portal-ui
+      - ./packages/i18n:/app/packages/i18n
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./scripts/ensure-npm-deps.sh:/app/scripts/ensure-npm-deps.sh:ro
+      - /app/node_modules
       - /app/portal-ui/node_modules
       - /app/portal-ui/.next
     depends_on:
       - backend
-    command: npm run dev -- --hostname 0.0.0.0
+    command:
+      [
+        "sh",
+        "-c",
+        "sh /app/scripts/ensure-npm-deps.sh /app && cd /app/portal-ui && exec npm run dev -- --hostname 0.0.0.0",
+      ]
 
 volumes:
   postgres_data:
   redis_data:
+  attachment_data:

@@ -1,8 +1,8 @@
 """Bridge between EventBus (in-process) and Outbox (durable).
 
 When `BaseRepository` publishes `record.{created,updated,deleted}` on the
-EventBus, this subscriber inspects active `IrWebhook` rows for the tenant
-and enqueues an `IrOutbox` entry per matching subscriber. Celery workers
+EventBus, this subscriber inspects active `Webhook` rows for the tenant
+and enqueues an `Outbox` entry per matching subscriber. Celery workers
 (PR 5) drain the table and deliver the webhook with HMAC signing.
 
 Idempotency: every outbox row carries the `request_id` of the originating
@@ -63,7 +63,7 @@ async def _on_record_event(payload: dict[str, Any]) -> None:
     # Lazy imports — avoid cycles at module load time.
     from sqlalchemy import select
 
-    from modules.base.model.mapping import ir_webhooks_table
+    from modules.base.model.mapping import base_webhooks_table
     from orbiteus_core.db import AsyncSessionFactory
     from orbiteus_core.outbox import enqueue
 
@@ -72,14 +72,14 @@ async def _on_record_event(payload: dict[str, Any]) -> None:
     async with AsyncSessionFactory() as session:
         try:
             stmt = select(
-                ir_webhooks_table.c.id,
-                ir_webhooks_table.c.event_mask,
-                ir_webhooks_table.c.model_filter,
-                ir_webhooks_table.c.field_filter,
+                base_webhooks_table.c.id,
+                base_webhooks_table.c.event_mask,
+                base_webhooks_table.c.model_filter,
+                base_webhooks_table.c.field_filter,
             ).where(
-                ir_webhooks_table.c.tenant_id == tenant_id,
-                ir_webhooks_table.c.is_active == True,  # noqa: E712
-                ir_webhooks_table.c.active == True,     # noqa: E712
+                base_webhooks_table.c.tenant_id == tenant_id,
+                base_webhooks_table.c.is_active == True,  # noqa: E712
+                base_webhooks_table.c.active == True,     # noqa: E712
             )
             rows = (await session.execute(stmt)).all()
             payload_model = payload.get("model")

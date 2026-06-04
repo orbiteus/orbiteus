@@ -16,7 +16,7 @@ Three contracts:
 
 Half of the file is a unit half (loads only `orbiteus_core.audit` +
 `orbiteus_core.ai.redaction`); the other half talks HTTP to the running
-backend and inspects `ir_audit_log` over psql, mirroring the style of
+backend and inspects `base_audit_log` over psql, mirroring the style of
 `tests/test_password_reset.py`. The integration half is skipped when
 the backend isn't reachable so `pytest -q` on a bare laptop stays green.
 """
@@ -169,7 +169,7 @@ def test_login_success_emits_audit_row():
 
     # Verify a row exists for THIS user with the right shape.
     out = _psql(
-        f"SELECT actor || ':' || operation FROM ir_audit_log WHERE "
+        f"SELECT actor || ':' || operation FROM base_audit_log WHERE "
         f"model='auth.session' AND user_id IN (SELECT id FROM base_users "
         f"WHERE email='{email}') ORDER BY create_date DESC LIMIT 1;"
     )
@@ -205,7 +205,7 @@ def test_login_failed_emits_audit_row():
 
     out = _psql(
         f"SELECT actor || ':' || operation || ':' || (diff->>'reason') "
-        f"FROM ir_audit_log WHERE model='auth.session' "
+        f"FROM base_audit_log WHERE model='auth.session' "
         f"AND user_id IN (SELECT id FROM base_users WHERE email='{email}') "
         f"AND operation='login_failed' "
         f"ORDER BY create_date DESC LIMIT 1;"
@@ -218,7 +218,7 @@ def test_login_failed_emits_audit_row():
 @pytestmark_integration
 def test_password_reset_emits_audit_rows():
     """Both `password_reset_requested` and `password_reset_completed`
-    must land in `ir_audit_log` with `actor=user`."""
+    must land in `base_audit_log` with `actor=user`."""
     import httpx
 
     sys.path.insert(0, str(BACKEND))
@@ -273,7 +273,7 @@ def test_password_reset_emits_audit_rows():
 
     out = _psql(
         f"SELECT string_agg(operation, ',' ORDER BY create_date) "
-        f"FROM ir_audit_log WHERE model='auth.session' "
+        f"FROM base_audit_log WHERE model='auth.session' "
         f"AND user_id IN (SELECT id FROM base_users WHERE email='{email}') "
         f"AND operation IN ('password_reset_requested', "
         f"                  'password_reset_completed');"
@@ -285,13 +285,13 @@ def test_password_reset_emits_audit_rows():
 
 @pytestmark_integration
 def test_audit_actor_label_is_within_allow_list():
-    """Defensive: anything still landing in `ir_audit_log` should use
+    """Defensive: anything still landing in `base_audit_log` should use
     one of the four allowed actor values. A regression here would point
     at someone bypassing the helper."""
     out = _psql(
-        "SELECT DISTINCT actor FROM ir_audit_log;"
+        "SELECT DISTINCT actor FROM base_audit_log;"
     )
     actors = {line.strip() for line in out.splitlines() if line.strip()}
     allowed = {"user", "ai", "portal", "system"}
     extra = actors - allowed
-    assert not extra, f"unexpected actor values in ir_audit_log: {extra!r}"
+    assert not extra, f"unexpected actor values in base_audit_log: {extra!r}"

@@ -72,6 +72,21 @@ hidden by default.
 - Topics scoped to their `aud` resources only — no fan-out across tenants
   or unrelated resources.
 
+## Data layer (TanStack Query)
+
+Portal UI uses TanStack Query for share-link data and portal mutations
+(ADR-0020):
+
+- `QueryProvider` in `layout.tsx`
+- `queryKeys.shareView(token)` for `/api/portal/exchange`
+- `useShareResourceView`, `usePortalComment`, `usePortalAttachment` in
+  `src/lib/queries/share.ts`
+- Realtime events call `refetch()` on the share query (same pattern as admin
+  list invalidation)
+- `placeholderData` on the share view — no flash on refetch after comment
+
+Do not add raw `useEffect` fetch loops for new portal surfaces.
+
 ## What is forbidden in portal
 
 - Browsing models that did not declare a `<portal>` view.

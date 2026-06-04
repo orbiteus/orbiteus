@@ -35,7 +35,7 @@ Helper: `make_system_columns()`.
 ## Naming rules
 
 - Table names: `<module>_<plural>` for business (`crm_persons`, `hr_employees`).
-- Table names: `ir_<thing>` for system (`ir_model_access`, `ir_audit_log`, `ir_outbox`).
+- Table names: `base_<thing>` for system (`base_model_access`, `base_audit_log`, `base_outbox`).
 - Model dotted names: `<module>.<singular>` (`crm.person`, `hr.employee`).
 - Column names: `snake_case`. FKs end with `_id`.
 
@@ -70,19 +70,17 @@ tenants belong in `mapping.py` with an Alembic migration.
 
 | Table | Purpose |
 |---|---|
-| `ir_model_access` | Role × model × CRUD matrix |
-| `ir_rule` | Record-level domain rules |
-| `ir_sequence` | Atomic numbering generator |
-| `ir_attachment` | Files associated with records |
-| `ir_message` | Chatter / notes thread |
-| `ir_activity` | Scheduled follow-ups |
-| `ir_cron` | Scheduled jobs (mapped to Celery Beat) |
-| `ir_audit_log` | Mandatory CRUD audit |
-| `ir_outbox` | Side-effect intents (drained by Celery worker) |
-| `ir_embedding` | pgvector vectors per (model, record_id) |
-| `ir_ai_credential` | BYOK encrypted provider keys per tenant |
-| `ir_ui_menu` | Sidebar menu entries |
-| `ir_config_param` | Branding and runtime parameters |
+| `base_model_access` | Role × model × CRUD matrix |
+| `base_rule` | Record-level domain rules |
+| `base_attachment` | Files associated with records |
+| `base_message` | Chatter / notes thread (**planned** — not yet in schema) |
+| `base_activity` | Scheduled follow-ups (**planned** — not yet in schema) |
+| `base_audit_log` | Mandatory CRUD audit |
+| `base_outbox` | Side-effect intents (drained by Celery worker) |
+| `base_embedding` | pgvector vectors per (model, record_id) |
+| `base_ai_credential` | BYOK encrypted provider keys per tenant |
+| `base_ui_menu` | Sidebar menu entries |
+| `base_config_param` | Branding and runtime parameters |
 
 ## Migrations policy
 
@@ -97,5 +95,5 @@ tenants belong in `mapping.py` with an Alembic migration.
 
 - `(tenant_id, <hot_filter_columns>)` composite index on every business table.
 - B-tree on FK columns used in joins or filters.
-- HNSW index on `ir_embedding.vector` (parameters in `15-ai-layer.md`).
+- HNSW index on `base_embedding.vector` (parameters in `15-ai-layer.md`).
 - GIN on `custom_fields jsonb_path_ops` per business table.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -18,8 +18,8 @@ import {
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import { api } from "@/lib/api";
 import { humanizeFieldName, useI18n } from "@/lib/i18n";
+import { useResourceList } from "@/lib/queries/resources";
 
 interface Props {
   resource: string;
@@ -44,19 +44,9 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
   const [anchorDate, setAnchorDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [query, setQuery] = useState("");
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    api
-      .get(`/${resource}`, { params: { limit: 500 } })
-      .then((res) => {
-        setRows(res.data.items ?? res.data ?? []);
-      })
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  }, [resource]);
+  const listQuery = useResourceList(resource, { limit: 500 });
+  const rows = listQuery.data?.items ?? [];
+  const loading = listQuery.isLoading && !listQuery.data;
 
   const events = useMemo<CalendarEvent[]>(() => {
     const q = query.trim().toLowerCase();
@@ -164,7 +154,7 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
                 minHeight: 140,
                 border: "1px solid var(--mantine-color-default-border)",
                 cursor: "pointer",
-                background: isSelected ? "var(--mantine-color-blue-0)" : "var(--mantine-color-body)",
+                background: isSelected ? "var(--mantine-color-dark-0)" : "var(--mantine-color-body)",
                 opacity: isCurrentMonth ? 1 : 0.45,
               }}
             >
@@ -181,7 +171,7 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
                     style={{
                       padding: "2px 6px",
                       borderRadius: 6,
-                      background: "var(--mantine-color-blue-1)",
+                      background: "var(--mantine-color-dark-1)",
                     }}
                   >
                     {ev.title}
@@ -226,12 +216,12 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
                     style={{
                       padding: "3px 6px",
                       borderRadius: 6,
-                      background: "var(--mantine-color-blue-0)",
+                      background: "var(--mantine-color-dark-0)",
                     }}
                   >
                     {ev.title}
                   </Text>
-                )) : <Text size="xs" c="dimmed">{t("no_events")}</Text>}
+                )) : <Text size="xs" c="dimmed">{t("calendar.noEvents")}</Text>}
               </Stack>
             </Paper>
           );
@@ -250,7 +240,7 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
             <Paper key={ev.id} p="sm" withBorder radius="sm">
               <Text size="sm">{ev.title}</Text>
             </Paper>
-          )) : <Text size="sm" c="dimmed">{t("no_events_on_selected_day")}</Text>}
+          )) : <Text size="sm" c="dimmed">{t("calendar.noEventsDay")}</Text>}
         </Stack>
       </Paper>
     );
@@ -258,7 +248,7 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
 
   return (
     <Stack gap="md">
-      <Title order={4}>{t("calendar_by", { field: dateFieldLabel })}</Title>
+      <Title order={4}>{t("calendar.by", { field: dateFieldLabel })}</Title>
       <Paper withBorder p="md" radius="sm">
         <Stack gap="sm">
           <Group justify="space-between" wrap="wrap">
@@ -278,7 +268,7 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
                   setSelectedDate(now);
                 }}
               >
-                {t("today")}
+                {t("calendar.today")}
               </Button>
             </Group>
             <Group gap="sm">
@@ -287,15 +277,15 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
                 value={view}
                 onChange={(v) => setView(v as CalendarView)}
                 data={[
-                  { label: t("month"), value: "month" },
-                  { label: t("week"), value: "week" },
-                  { label: t("day"), value: "day" },
+                  { label: t("calendar.month"), value: "month" },
+                  { label: t("calendar.week"), value: "week" },
+                  { label: t("calendar.day"), value: "day" },
                 ]}
               />
               <TextInput
                 size="xs"
                 w={220}
-                placeholder={t("filter_events")}
+                placeholder={t("calendar.filterEvents")}
                 value={query}
                 onChange={(e) => setQuery(e.currentTarget.value)}
               />
@@ -307,7 +297,7 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
               {view === "week" && `${weekDays[0].format("D MMM")} - ${weekDays[6].format("D MMM YYYY")}`}
               {view === "day" && dayjs(selectedDate).format("D MMMM YYYY")}
             </Title>
-            <Text size="xs" c="dimmed">{t("events", { count: events.length })}</Text>
+            <Text size="xs" c="dimmed">{t("calendar.events", { count: events.length })}</Text>
           </Group>
           {view === "month" && renderMonthGrid()}
           {view === "week" && renderWeekGrid()}
@@ -316,21 +306,21 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
       </Paper>
 
       <Paper withBorder p="md" radius="sm">
-        <Title order={5} mb="xs">{t("events_list")}</Title>
+        <Title order={5} mb="xs">{t("calendar.eventsList")}</Title>
         <Text size="sm" c="dimmed" mb="sm">
           {view === "day"
-            ? t("selected_day", { date: selectedKey })
-            : t("filtered_period", { period: t(view) })}
+            ? t("calendar.selectedDay", { date: selectedKey })
+            : t("calendar.filteredPeriod", { period: t(`calendar.${view}`) })}
         </Text>
         <Stack gap="xs">
           {selectedEvents.length > 0
             ? selectedEvents.map((ev) => <Text key={ev.id} size="sm">{ev.title}</Text>)
-            : <Text size="sm" c="dimmed">{t("no_events_on_selected_day")}</Text>}
+            : <Text size="sm" c="dimmed">{t("calendar.noEventsDay")}</Text>}
         </Stack>
       </Paper>
 
       <Paper withBorder p="md" radius="sm">
-        <Title order={5} mb="xs">{t("agenda")}</Title>
+        <Title order={5} mb="xs">{t("calendar.agenda")}</Title>
         <Stack gap="xs">
           {visibleAgenda.length > 0 ? visibleAgenda.map(([d, dayEvents]) => (
             <Box key={d}>
@@ -340,7 +330,7 @@ export default function ResourceCalendar({ resource, dateField, titleField = "na
               ))}
             </Box>
           )) : (
-            <Text size="sm" c="dimmed">{t("no_records_for_period")}</Text>
+            <Text size="sm" c="dimmed">{t("calendar.noRecordsPeriod")}</Text>
           )}
         </Stack>
       </Paper>

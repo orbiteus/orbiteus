@@ -42,12 +42,15 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-# Strip internal `ir-` / `ir_` registry prefix from UI labels (URLs stay `ir-model`).
-_IR_UI_PREFIX = re.compile(r"^ir[-_]", re.IGNORECASE)
+# Strip verbose engine slug prefixes from UI labels (URLs keep full slugs).
+_REGISTRY_UI_PREFIX = re.compile(
+    r"^(registry-|record-|scheduled-|document-|embedding-)",
+    re.IGNORECASE,
+)
 
 
-def _strip_ir_ui_prefix(name: str) -> str:
-    return _IR_UI_PREFIX.sub("", name, count=1)
+def _strip_registry_ui_prefix(name: str) -> str:
+    return _REGISTRY_UI_PREFIX.sub("", name, count=1)
 
 # ---------------------------------------------------------------------------
 # Pydantic annotation → UI type mapping
@@ -121,8 +124,8 @@ def _resolve_annotation(annotation: Any) -> str | None:
 
 
 def _field_label(name: str) -> str:
-    """Convert snake_case field name to Title Case label (no leading ``Ir`` from ``ir_*``)."""
-    return _strip_ir_ui_prefix(name).replace("_", " ").replace("-", " ").title()
+    """Convert snake_case field name to Title Case label (no leading ``Ir`` from ``base_*``)."""
+    return _strip_registry_ui_prefix(name).replace("_", " ").replace("-", " ").title()
 
 
 def _unwrap_optional(annotation: Any) -> Any:
@@ -147,19 +150,71 @@ def _infer_fk_relation(field_name: str, parent_model: str) -> str | None:
         return None
     mod = parent_model.split(".")[0]
     stem = field_name[:-3]
-    if field_name == "assigned_user_id":
-        return "base.user"
-    if field_name == "company_id":
-        return "base.company"
-    if field_name == "partner_id":
-        return "base.partner"
+
+    if field_name == "parent_id" and parent_model == "base.ui-menu":
+        return "base.ui-menu"
+    if field_name == "inherit_id" and parent_model == "base.ui-view":
+        return "base.ui-view"
     if field_name == "parent_id":
         return None
-    if field_name == "user_id":
-        return "base.user"
+
+    candidates: list[str] = []
+    if field_name in ("company_id",):
+        candidates.append("base.company")
+    if field_name.endswith("_user_id") or field_name == "user_id":
+        candidates.append("base.user")
+    if field_name == "assigned_team_id":
+        candidates.append(f"{mod}.team")
     if field_name == "manager_id":
-        return f"{mod}.employee"
-    return f"{mod}.{stem}"
+        candidates.append(f"{mod}.employee")
+
+    candidates.append(f"{mod}.{stem}")
+    if stem.startswith("assigned_"):
+        rest = stem[len("assigned_") :]
+        if rest:
+            candidates.append(f"{mod}.{rest}")
+
+    from orbiteus_core.auto_router import _model_registry
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate in _model_registry:
+            return candidate
+    return candidates[0] if candidates else None
+
+
+def _infer_many2many_relation(field_name: str, parent_model: str) -> str | None:
+    """Map list[UUID] fields to a related model for many2many UI widgets."""
+    if field_name == "company_ids" and parent_model == "base.user":
+        return "base.company"
+    if field_name == "member_user_ids" and parent_model == "crm.team":
+        return "base.user"
+    if field_name.endswith("_user_ids"):
+        return "base.user"
+    if field_name.endswith("_ids"):
+        stem = field_name[:-4]
+        mod = parent_model.split(".")[0]
+        candidate = f"{mod}.{stem}"
+        from orbiteus_core.auto_router import _model_registry
+
+        if candidate in _model_registry:
+            return candidate
+    return None
+
+
+def _role_multi_select_field(field_name: str, field_info: Any, *, label: str) -> dict[str, Any]:
+    return {
+        "name": field_name,
+        "type": "multi_select",
+        "required": field_info.is_required(),
+        "label": label,
+        "optionsResource": "base/role",
+        "optionValue": "code",
+        "optionLabel": "name",
+    }
 
 
 def _enum_options(annotation: Any) -> list[dict[str, str]] | None:
@@ -184,7 +239,11 @@ def pydantic_schema_to_fields(schema: type[BaseModel], model_name: str) -> list[
     Returns list of field dicts with keys: name, type, required, label,
     optional options, optional relation (many2one).
     """
-    _INTERNAL_FIELDS = {"id", "tenant_id", "company_id", "active", "create_date", "write_date"}
+    _INTERNAL_FIELDS = {
+        "id", "tenant_id", "company_id", "active", "create_date", "write_date",
+        "password", "password_hash", "totp_secret", "recovery_codes_hashed",
+        "last_login", "last_login_device",
+    }
 
     # Field name → UI type override (applied after type inference)
     _NAME_HINTS: dict[str, str] = {
@@ -202,6 +261,66 @@ def pydantic_schema_to_fields(schema: type[BaseModel], model_name: str) -> list[
             continue
 
         annotation = field_info.annotation
+        # Role codes — multi-select from base.role.
+        if field_name == "role_ids" and model_name == "base.user":
+            result.append(_role_multi_select_field(
+                field_name, field_info, label=field_info.title or _field_label(field_name),
+            ))
+            continue
+        if field_name == "language" and model_name == "base.user":
+            from orbiteus_core.i18n import language_select_options
+
+            result.append({
+                "name": field_name,
+                "type": "select",
+                "required": field_info.is_required(),
+                "label": field_info.title or _field_label(field_name),
+                "options": language_select_options(),
+            })
+            continue
+        if field_name == "timezone" and model_name == "base.user":
+            from orbiteus_core.i18n import timezone_select_options
+
+            result.append({
+                "name": field_name,
+                "type": "select",
+                "required": field_info.is_required(),
+                "label": field_info.title or _field_label(field_name),
+                "options": timezone_select_options(),
+            })
+            continue
+        if field_name == "role_name" and model_name == "base.model-access":
+            result.append({
+                "name": field_name,
+                "type": "select",
+                "required": field_info.is_required(),
+                "label": field_info.title or _field_label(field_name),
+                "optionsResource": "base/role",
+                "optionValue": "code",
+                "optionLabel": "name",
+            })
+            continue
+        if field_name == "roles" and model_name == "base.record-rule":
+            result.append(_role_multi_select_field(
+                field_name, field_info, label=field_info.title or _field_label(field_name),
+            ))
+            continue
+        # list[UUID] → many2many when relation resolves.
+        if get_origin(annotation) is list:
+            inner = [a for a in get_args(annotation) if a is not type(None)]
+            if inner and (inner[0] is uuid.UUID or inner[0] == uuid.UUID):
+                rel = _infer_many2many_relation(field_name, model_name)
+                if rel:
+                    result.append({
+                        "name": field_name,
+                        "type": "many2many",
+                        "required": field_info.is_required(),
+                        "label": field_info.title or _field_label(field_name),
+                        "relation": rel,
+                        "optionValue": "id",
+                        "optionLabel": "name",
+                    })
+                    continue
         # list[str] → tags widget; other list[...] still skipped
         if get_origin(annotation) is list:
             inner = [a for a in get_args(annotation) if a is not type(None)]
@@ -284,19 +403,23 @@ def _default_currency_code(model_name: str, field_name: str) -> str:  # noqa: AR
     return "PLN"
 
 
-def build_ui_config() -> dict[str, Any]:
+def build_ui_config(enabled_map: dict[str, bool] | None = None) -> dict[str, Any]:
     """Build the full UI config payload from registered modules and models.
 
     Called from GET /api/base/ui-config.
     """
     from orbiteus_core.auto_router import _model_registry
+    from orbiteus_core.module_catalog import is_module_enabled
     from orbiteus_core.registry import registry
     from orbiteus_core.view_loader import get_resolved_arch_for_model
 
     all_views = registry.get_all_views()
+    json_views = registry.get_all_json_views()
     modules_out: list[dict[str, Any]] = []
 
     for mod_name in registry.loaded_modules:
+        if not is_module_enabled(mod_name, enabled_map):
+            continue
         try:
             desc = registry.get_module(mod_name)
         except Exception:
@@ -304,6 +427,7 @@ def build_ui_config() -> dict[str, Any]:
 
         manifest = desc.manifest
         model_names: list[str] = manifest.get("models", [])
+        hidden: set[str] = set(manifest.get("ui_hidden_models", []))
         label = manifest.get("name", mod_name.title())
         category = manifest.get("category", "")
 
@@ -314,20 +438,37 @@ def build_ui_config() -> dict[str, Any]:
                 continue
 
             write_schema = entry["write_schema"]
+            read_schema = entry.get("read_schema")
+            schema_for_fields = read_schema or write_schema
             try:
-                fields = pydantic_schema_to_fields(write_schema, model_name)
+                fields = pydantic_schema_to_fields(schema_for_fields, model_name)
             except Exception as e:
                 logger.warning("Could not introspect schema for %s: %s", model_name, e)
                 fields = []
 
-            # Resolve view arch strings (XML) for each view type
-            def _view(vtype: str) -> str | None:
-                return get_resolved_arch_for_model(model_name, vtype, all_views)
+            # Form-only write fields (e.g. password on base.user).
+            if read_schema is not None and read_schema is not write_schema:
+                try:
+                    write_fields = pydantic_schema_to_fields(write_schema, model_name)
+                except Exception:
+                    write_fields = []
+                read_names = {f["name"] for f in fields}
+                for wf in write_fields:
+                    if wf["name"] not in read_names:
+                        fields.append(wf)
+
+            model_json = json_views.get(model_name, {})
+
+            def _view(vtype: str) -> str | dict[str, Any] | None:
+                if vtype in model_json:
+                    return model_json[vtype]
+                arch = get_resolved_arch_for_model(model_name, vtype, all_views)
+                return arch
 
             # Model label = last segment of dotted name, Title Case (hide ``ir-`` prefix)
             model_label = _field_label(model_name.split(".")[-1])
 
-            models_out.append({
+            payload: dict[str, Any] = {
                 "name":   model_name,
                 "label":  model_label,
                 "fields": fields,
@@ -339,7 +480,10 @@ def build_ui_config() -> dict[str, Any]:
                     "calendar": _view("calendar"),
                     "graph":    _view("graph"),
                 },
-            })
+            }
+            if model_name in hidden:
+                payload["ui_hidden"] = True
+            models_out.append(payload)
 
         if models_out:
             modules_out.append({

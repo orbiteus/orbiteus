@@ -74,10 +74,6 @@ async def client():
     ) as ac:
         yield ac
 
-    # Optional cleanup: drop all tables after the session
-    async with engine.begin() as conn:
-        await conn.run_sync(metadata.drop_all)
-
 
 # ---------------------------------------------------------------------------
 # Helpers — every test uses unique UUIDs to avoid inter-test conflicts.

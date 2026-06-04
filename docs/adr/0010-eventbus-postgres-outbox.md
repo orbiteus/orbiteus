@@ -17,10 +17,10 @@ Mixing these into a single mechanism breeds bugs.
 ## Decision
 
 - **EventBus** (in-process, async): synchronous hooks during a request.
-- **Postgres Outbox** (`ir_outbox` table): durable side-effect intents committed
+- **Postgres Outbox** (`base_outbox` table): durable side-effect intents committed
   atomically with the business transaction; drained by Celery workers with
   idempotent retry.
-- **Celery Beat**: schedules driven by `ir_cron`.
+- **Celery Beat**: schedules driven by `base_cron`.
 
 ## Consequences
 

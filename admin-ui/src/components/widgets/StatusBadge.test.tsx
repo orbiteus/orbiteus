@@ -20,7 +20,7 @@ function renderProps(value: string) {
 
 describe("StatusBadge — DoD §9.4 colour contract", () => {
   it("maps known statuses to their canonical colour", () => {
-    expect(renderProps("lead").color).toBe("gray");
+    expect(renderProps("lead").color).toBe("cyan");
     expect(renderProps("won").color).toBe("green");
     expect(renderProps("lost").color).toBe("red");
     expect(renderProps("draft").color).toBe("gray");

@@ -141,6 +141,68 @@ redaction_rules = [
 Applied automatically before any prompt is sent to a remote provider; raw
 values stay in the database.
 
+## Recipe 9 — Create a named agent (framework)
+
+1. Ensure your module has `ai.py` (Recipe 1).
+2. AI → **Agents** → New (or `POST /api/base/agent`):
+
+   ```json
+   {
+     "slug": "hr-assistant",
+     "name": "HR Assistant",
+     "module_scope": "hr",
+     "system_prompt": "You help HR staff with employee records.",
+     "allowed_models": ["hr.employee"],
+     "allowed_actions": ["hr.employee.create"]
+   }
+   ```
+
+3. Run a test:
+
+   ```bash
+   POST /api/ai/runs
+   { "agent_id": "<uuid>", "prompt": "List active employees" }
+   ```
+
+4. Inspect output under AI → **Agent runs**.
+
+Allow-lists must be subsets of what the module declared in `ai.py`. RBAC of
+the caller is always the upper bound.
+
+## Recipe 10 — Async agent run (Celery)
+
+```json
+POST /api/ai/runs
+{ "agent_id": "<uuid>", "prompt": "Weekly pipeline summary", "async": true }
+```
+
+Poll `GET /api/ai/runs/{id}` or subscribe to the SSE topic documented in
+`37-ai-agents.md`.
+
+## Recipe 11 — Enable agent delegation
+
+1. Create a read-only agent (e.g. `crm-analyst`) with models only.
+2. On the orchestrator agent set `can_delegate=true` and
+   `allowed_delegate_slugs=["crm-analyst"]`.
+3. In the orchestrator system prompt, instruct it to call `delegate_agent` for
+   analysis tasks.
+4. Inspect parent and child rows under AI → Agent runs (`parent_run_id`,
+   `depth`).
+
+## Recipe 12 — Schedule a recurring agent run
+
+On the agent form (or `PUT /api/base/agent/{id}`):
+
+```json
+{
+  "schedule_interval_minutes": 1440,
+  "schedule_prompt": "Daily pipeline summary for the sales team"
+}
+```
+
+Celery Beat task `poll_scheduled_agents` runs every 5 minutes and triggers
+eligible agents. Requires a running worker + beat container.
+
 ## What you should NOT do
 
 - Don't import `anthropic` / `openai` SDKs in modules. Always use

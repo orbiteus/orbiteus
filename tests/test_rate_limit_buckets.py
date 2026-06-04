@@ -13,7 +13,10 @@ exceeds its limit returns ``429`` with ``Retry-After`` and a body
 ``{"detail":"Rate limit exceeded","code":"rate_limit.exceeded",
 "bucket": "<bucket_name>"}``.
 
-These tests run against the live dev compose backend on
+Authenticated GET/list traffic is **not** limited (SPA navigation).
+These tests cover mutation buckets and anonymous IP protection.
+
+They run against the live dev compose backend on
 ``BACKEND_URL`` (default ``http://localhost:8000``). They flush the
 relevant Redis keys via ``redis-cli`` before each scenario so a
 previously-burned bucket from another test or from a manual session
@@ -126,23 +129,27 @@ def _login(email: str, password: str) -> str:
 # ---------------------------------------------------------------------------
 
 def test_user_bucket_returns_429_with_retry_after():
-    """Hammering `/api/auth/me` past `rate_limit_user_per_minute`
-    triggers a 429 with the canonical body shape and `Retry-After`."""
+    """Hammering authenticated POST mutations past
+    `rate_limit_user_mutations_per_minute` triggers 429."""
     import httpx
 
     email, password = _register_user("user_bucket")
     token = _login(email, password)
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Default user limit is 60/min. We send 70 calls and expect the
-    # backend to start refusing somewhere on the way.
+    # Default mutation limit is 600/min. Burst POSTs (validation may fail,
+    # but middleware counts every attempt).
     statuses: list[int] = []
     last_body: dict | None = None
     last_retry_after: str | None = None
 
     with httpx.Client(timeout=10) as http:
-        for _ in range(70):
-            r = http.get(f"{BACKEND_URL}/api/auth/me", headers=headers)
+        for _ in range(650):
+            r = http.post(
+                f"{BACKEND_URL}/api/crm/person",
+                headers=headers,
+                json={},
+            )
             statuses.append(r.status_code)
             if r.status_code == 429:
                 last_body = r.json()
@@ -150,7 +157,7 @@ def test_user_bucket_returns_429_with_retry_after():
                 break
 
     assert 429 in statuses, (
-        "user bucket never refused even after 70 requests "
+        "user mutation bucket never refused even after 650 POSTs "
         f"(statuses sampled: {statuses[:10]} ... {statuses[-5:]})"
     )
     assert last_body is not None
@@ -160,6 +167,22 @@ def test_user_bucket_returns_429_with_retry_after():
     )
     assert last_retry_after is not None
     assert int(last_retry_after) > 0
+
+
+def test_authenticated_list_reads_never_429_under_navigation_burst():
+    """Rapid GET /api/crm/* (SPA navigation) must not hit 429."""
+    import httpx
+
+    email, password = _register_user("read_burst")
+    token = _login(email, password)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with httpx.Client(timeout=10) as http:
+        for model in ("person", "lead", "stage", "team") * 25:
+            r = http.get(f"{BACKEND_URL}/api/crm/{model}", headers=headers)
+            assert r.status_code != 429, (
+                f"GET /api/crm/{model} returned 429 during navigation burst"
+            )
 
 
 # ---------------------------------------------------------------------------

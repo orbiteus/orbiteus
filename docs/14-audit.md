@@ -2,25 +2,25 @@
 
 ## Policy: 100% mandatory, opt-out
 
-Every CRUD operation through `BaseRepository` writes one row to `ir_audit_log`.
+Every CRUD operation through `BaseRepository` writes one row to `base_audit_log`.
 Modules **cannot opt in** — they must explicitly **opt out** by setting
-`Manifest.audit_optout = ["ir_audit_log", "ir_outbox", "..."]` for system log
+`Manifest.audit_optout = ["base_audit_log", "base_outbox", "..."]` for system log
 tables that would otherwise loop.
 
 Default tables that opt out:
 
-- `ir_audit_log` (logging the log creates infinite loops)
-- `ir_outbox` (transient queue)
-- `ir_embedding` (auto-generated, derivative)
+- `base_audit_log` (logging the log creates infinite loops)
+- `base_outbox` (transient queue)
+- `base_embedding` (auto-generated, derivative)
 - `presence:*` (Redis only, not in DB)
 
 ## Schema
 
 ```sql
-CREATE TABLE ir_audit_log (
+CREATE TABLE base_audit_log (
     id           UUID PRIMARY KEY,
     tenant_id    UUID,
-    actor        TEXT NOT NULL,        -- 'user' | 'ai' | 'system'
+    actor        TEXT NOT NULL,        -- 'user' | 'ai' | 'portal' | 'system'
     user_id      UUID,
     request_id   TEXT,
     model        TEXT NOT NULL,
@@ -30,9 +30,9 @@ CREATE TABLE ir_audit_log (
     metadata     JSONB,                -- ip, user_agent, ai_prompt_id, etc.
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX ON ir_audit_log (tenant_id, model, record_id, created_at DESC);
-CREATE INDEX ON ir_audit_log (tenant_id, user_id, created_at DESC);
-CREATE INDEX ON ir_audit_log (tenant_id, actor, operation, created_at DESC);
+CREATE INDEX ON base_audit_log (tenant_id, model, record_id, created_at DESC);
+CREATE INDEX ON base_audit_log (tenant_id, user_id, created_at DESC);
+CREATE INDEX ON base_audit_log (tenant_id, actor, operation, created_at DESC);
 ```
 
 ## What's logged
@@ -49,9 +49,31 @@ CREATE INDEX ON ir_audit_log (tenant_id, actor, operation, created_at DESC);
 ## Actor semantics
 
 - `actor='user'` — direct human action (admin UI / portal UI).
-- `actor='ai'` — AI tool call on behalf of a user; `metadata.ai_prompt_id`
-  ties it back to a chat session.
+- `actor='ai'` — AI tool call on behalf of a user; `metadata.provider` and
+  optional `metadata.agent_run_id` tie it back to a chat session.
+- `actor='portal'` — mutation through a share link (comment, attachment).
 - `actor='system'` — scheduled jobs, internal bootstrap, migrations.
+  Use `metadata.source`, `metadata.webhook_name`, or `metadata.cron_job`
+  when the generic label is not enough.
+
+## Initiator enrichment (API)
+
+`GET /api/base/audit-log` enriches each row with an `initiator` object:
+
+```json
+{
+  "kind": "user",
+  "label": "Jane Doe (jane@acme.com)",
+  "detail": "IP 10.0.0.1 · superadmin session",
+  "user_email": "jane@acme.com",
+  "user_name": "Jane Doe"
+}
+```
+
+Labels are derived from `actor`, a batch join on `base_users` when
+`user_id` is set, login `diff.email` for failed attempts, and
+`metadata` (IP, provider, webhook/cron hints). Raw `user_id` and
+`request_id` remain on the row for correlation.
 
 AI is **never** treated as a privileged actor; the `RequestContext` of the
 human user is the upper bound on permissions.
@@ -59,13 +81,13 @@ human user is the upper bound on permissions.
 ## Diff redaction
 
 - Password / secret fields are redacted (`["***", "***"]`).
-- PII can be redacted per-tenant policy (`ir_audit_redaction` config table).
+- PII can be redacted per-tenant policy (`base_audit_redaction` config table).
 - Field-level RBAC (Layer 4) restricts who can read which diff fields.
 
 ## Retention
 
 - Default: 365 days.
-- Configurable per tenant in `ir_config_param`.
+- Configurable per tenant in `base_config_param`.
 - Old rows partitioned monthly; archived to S3-compatible storage; rehydrated
   on demand for compliance requests.
 
@@ -87,4 +109,4 @@ superadmins see all; tenant admins see their tenant only.
 - Not a metric system. Use Prometheus.
 - Not a tracing system. Use OpenTelemetry.
 
-`ir_audit_log` is for **business events** — answering "who changed what when".
+`base_audit_log` is for **business events** — answering "who changed what when".

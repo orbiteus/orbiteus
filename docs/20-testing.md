@@ -38,7 +38,7 @@ Component test must cover at least:
 - Each registered widget renders for valid + invalid props.
 - `ResourceList` paginates, sorts, filters via URL params.
 - `ResourceForm` posts/puts the right payload shape.
-- `<PromptInput>` falls back gracefully without an `ir_ai_credential`.
+- `<PromptInput>` falls back gracefully without an `base_ai_credential`.
 
 ## E2E scenarios (critical path, must remain green)
 
@@ -57,6 +57,24 @@ Component test must cover at least:
 
 - Locust scenario: 100 virtual users, 10 minutes, p95 < 300 ms on list endpoints.
 - Run weekly in CI or before tagging a release.
+
+## UI i18n tests
+
+- **On-disk catalogs:** `backend/tests/test_base_i18n_files.py` (JSON in
+  `modules/base/i18n/`, optional `scripts/check_i18n.py` when mounted in CI).
+- **Registry merge / EN fallback:** `backend/tests/test_i18n_registry.py`.
+- **HTTP API:** `test_base_i18n_catalog.py`, `test_i18n_packs.py`,
+  `test_i18n_db_override.py`.
+- **Frontend runtime:** `packages/i18n/src/*.test.ts`, `admin-ui/src/lib/i18nApi.test.ts`.
+
+Run backend i18n slice:
+
+```bash
+pytest tests/test_base_i18n_files.py tests/test_base_i18n_catalog.py \
+  tests/test_i18n_registry.py tests/test_i18n_packs.py tests/test_i18n_core.py \
+  tests/test_i18n_db_override.py -q
+python3 scripts/check_i18n.py
+```
 
 ## Documentation tests
 

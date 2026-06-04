@@ -48,3 +48,5 @@
 - [ ] 6.2 E2E: comment → admin sees realtime update
 - [ ] 6.3 Negative test: portal cannot access non-declared model (`403`)
 - [ ] 6.4 Negative test: portal cannot read other tenants
+- [x] 6.5 Vitest: queryKeys + api error helpers
+- [x] 6.6 TanStack Query on share view + portal mutations (ADR-0020)

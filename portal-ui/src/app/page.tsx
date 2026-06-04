@@ -1,20 +1,22 @@
+"use client";
+
 import { Anchor, Container, Stack, Text, Title } from "@mantine/core";
+import { useT } from "@orbiteus/i18n";
 
 export default function PortalRoot() {
+  return <PortalHome />;
+}
+
+function PortalHome() {
+  const t = useT();
   return (
     <Container size="sm" py="xl">
       <Stack gap="md">
-        <Title order={1}>Orbiteus Partner Portal</Title>
-        <Text c="dimmed">
-          This is the entry point for external collaborators. Open the share
-          link you received in your email to view the resource.
-        </Text>
-        <Text size="sm" c="dimmed">
-          If you don&apos;t have a share link, contact your account
-          administrator.
-        </Text>
+        <Title order={1}>{t("portal.title")}</Title>
+        <Text c="dimmed">{t("portal.intro")}</Text>
+        <Text size="sm" c="dimmed">{t("portal.noLink")}</Text>
         <Anchor href="https://orbiteus.com" target="_blank" rel="noreferrer">
-          About Orbiteus
+          {t("portal.about")}
         </Anchor>
       </Stack>
     </Container>

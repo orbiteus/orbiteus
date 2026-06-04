@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 # ---------------------------------------------------------------------------
@@ -62,38 +62,6 @@ class CompanyWrite(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Partner
-# ---------------------------------------------------------------------------
-
-class PartnerRead(BaseModel):
-    id: uuid.UUID
-    tenant_id: uuid.UUID | None
-    name: str
-    email: str | None
-    phone: str | None
-    city: str | None
-    country_code: str
-    is_company: bool
-    vat: str | None
-
-    model_config = {"from_attributes": True}
-
-
-class PartnerWrite(BaseModel):
-    name: str
-    email: str | None = None
-    phone: str | None = None
-    mobile: str | None = None
-    street: str | None = None
-    city: str | None = None
-    zip_code: str | None = None
-    country_code: str = "PL"
-    is_company: bool = False
-    vat: str | None = None
-    parent_partner_id: uuid.UUID | None = None
-
-
-# ---------------------------------------------------------------------------
 # User
 # ---------------------------------------------------------------------------
 
@@ -107,7 +75,10 @@ class UserRead(BaseModel):
     language: str
     timezone: str
     totp_enabled: bool
-    last_login: str | None
+    last_login: datetime | None = None
+    last_login_device: str | None = None
+    company_ids: list[uuid.UUID] = Field(default_factory=list)
+    role_ids: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -115,16 +86,40 @@ class UserRead(BaseModel):
 class UserWrite(BaseModel):
     email: str
     name: str
-    password: str  # plain – hashed in service layer
-    language: str = "pl"
+    password: str | None = None  # required on create; hashed in UserRepository
+    language: str = "en"
     timezone: str = "Europe/Warsaw"
+    is_active: bool = True
+    company_ids: list[uuid.UUID] = Field(default_factory=list)
+    role_ids: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# ir_model
+# Role (RBAC group)
 # ---------------------------------------------------------------------------
 
-class IrModelRead(BaseModel):
+class RoleRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    code: str
+    description: str | None
+    is_system: bool
+    active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class RoleWrite(BaseModel):
+    name: str
+    code: str
+    description: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# registry model metadata
+# ---------------------------------------------------------------------------
+
+class RegistryModelRead(BaseModel):
     id: uuid.UUID
     model_name: str
     label: str | None
@@ -135,7 +130,7 @@ class IrModelRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class IrModelWrite(BaseModel):
+class RegistryModelWrite(BaseModel):
     model_name: str
     label: str | None = None
     module: str | None = None
@@ -143,10 +138,10 @@ class IrModelWrite(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ir_model_field
+# registry model metadata_field
 # ---------------------------------------------------------------------------
 
-class IrModelFieldRead(BaseModel):
+class RegistryModelFieldRead(BaseModel):
     id: uuid.UUID
     model_name: str
     field_name: str
@@ -160,7 +155,7 @@ class IrModelFieldRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class IrModelFieldWrite(BaseModel):
+class RegistryModelFieldWrite(BaseModel):
     model_name: str
     field_name: str
     field_type: str
@@ -172,10 +167,10 @@ class IrModelFieldWrite(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ir_model_access
+# base_model_access
 # ---------------------------------------------------------------------------
 
-class IrModelAccessRead(BaseModel):
+class ModelAccessRead(BaseModel):
     id: uuid.UUID
     model_name: str
     role_name: str
@@ -187,7 +182,7 @@ class IrModelAccessRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class IrModelAccessWrite(BaseModel):
+class ModelAccessWrite(BaseModel):
     model_name: str
     role_name: str
     perm_read: bool = False
@@ -197,10 +192,10 @@ class IrModelAccessWrite(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ir_rule
+# record rule
 # ---------------------------------------------------------------------------
 
-class IrRuleRead(BaseModel):
+class RecordRuleRead(BaseModel):
     id: uuid.UUID
     name: str
     model_name: str
@@ -211,7 +206,7 @@ class IrRuleRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class IrRuleWrite(BaseModel):
+class RecordRuleWrite(BaseModel):
     name: str
     model_name: str
     domain_force: str = "[]"
@@ -224,10 +219,10 @@ class IrRuleWrite(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ir_ui_menu
+# ui menu
 # ---------------------------------------------------------------------------
 
-class IrUiMenuRead(BaseModel):
+class UiMenuRead(BaseModel):
     id: uuid.UUID
     name: str
     parent_id: uuid.UUID | None
@@ -238,7 +233,7 @@ class IrUiMenuRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class IrUiMenuWrite(BaseModel):
+class UiMenuWrite(BaseModel):
     name: str
     parent_id: uuid.UUID | None = None
     sequence: int = 10
@@ -249,35 +244,10 @@ class IrUiMenuWrite(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ir_sequence
+# config param
 # ---------------------------------------------------------------------------
 
-class IrSequenceRead(BaseModel):
-    id: uuid.UUID
-    name: str
-    code: str
-    prefix: str | None
-    padding: int
-    number_next: int
-
-    model_config = {"from_attributes": True}
-
-
-class IrSequenceWrite(BaseModel):
-    name: str
-    code: str
-    prefix: str = ""
-    suffix: str = ""
-    padding: int = 5
-    number_next: int = 1
-    number_increment: int = 1
-
-
-# ---------------------------------------------------------------------------
-# ir_config_param
-# ---------------------------------------------------------------------------
-
-class IrConfigParamRead(BaseModel):
+class ConfigParamRead(BaseModel):
     id: uuid.UUID
     key: str
     value: str | None
@@ -287,7 +257,7 @@ class IrConfigParamRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class IrConfigParamWrite(BaseModel):
+class ConfigParamWrite(BaseModel):
     key: str
     value: str = ""
     description: str = ""
@@ -295,37 +265,31 @@ class IrConfigParamWrite(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# ir_cron
+# ui translation
 # ---------------------------------------------------------------------------
 
-class IrCronRead(BaseModel):
+class UiTranslationRead(BaseModel):
     id: uuid.UUID
-    name: str
-    model_name: str | None
-    function_name: str | None
-    interval_number: int
-    interval_type: str
-    is_active: bool
-    next_call: str | None
-    temporal_schedule_id: str | None
+    lang: str
+    module: str
+    msg_key: str
+    value: str
 
     model_config = {"from_attributes": True}
 
 
-class IrCronWrite(BaseModel):
-    name: str
-    model_name: str | None = None
-    function_name: str | None = None
-    interval_number: int = 1
-    interval_type: str = "hours"
-    is_active: bool = True
+class UiTranslationWrite(BaseModel):
+    lang: str
+    module: str = ""
+    msg_key: str
+    value: str = ""
 
 
 # ---------------------------------------------------------------------------
-# ir_ui_view
+# ui view
 # ---------------------------------------------------------------------------
 
-class IrUiViewRead(BaseModel):
+class UiViewRead(BaseModel):
     id: uuid.UUID
     name: str
     model: str
@@ -339,7 +303,7 @@ class IrUiViewRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class IrUiViewWrite(BaseModel):
+class UiViewWrite(BaseModel):
     name: str
     model: str
     type: str = "form"
@@ -348,3 +312,71 @@ class IrUiViewWrite(BaseModel):
     priority: int = 16
     active: bool = True
     module: str = ""
+
+
+# ---------------------------------------------------------------------------
+# AI agents (ADR-0018)
+# ---------------------------------------------------------------------------
+
+class AgentRead(BaseModel):
+    id: uuid.UUID
+    slug: str
+    name: str
+    module_scope: str
+    system_prompt: str
+    allowed_models: list[str]
+    allowed_actions: list[str]
+    provider: str | None
+    model_default: str | None
+    is_system: bool
+    can_delegate: bool
+    allowed_delegate_slugs: list[str]
+    schedule_interval_minutes: int | None
+    schedule_prompt: str
+    schedule_last_run_at: datetime | None
+    active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class AgentWrite(BaseModel):
+    slug: str
+    name: str
+    module_scope: str = "*"
+    system_prompt: str = ""
+    allowed_models: list[str] = []
+    allowed_actions: list[str] = []
+    provider: str | None = None
+    model_default: str | None = None
+    can_delegate: bool = False
+    allowed_delegate_slugs: list[str] = []
+    schedule_interval_minutes: int | None = None
+    schedule_prompt: str = ""
+    active: bool = True
+
+
+class AgentRunRead(BaseModel):
+    id: uuid.UUID
+    agent_id: uuid.UUID
+    parent_run_id: uuid.UUID | None
+    depth: int
+    triggered_by_user_id: uuid.UUID | None
+    input_prompt: str
+    status: str
+    output_text: str | None
+    tool_trace: list[dict]
+    tokens_used: int
+    error_message: str | None
+    active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class AgentRunWrite(BaseModel):
+    agent_id: uuid.UUID
+    input_prompt: str = ""
+    status: str = "pending"
+    output_text: str | None = None
+    tool_trace: list[dict] = []
+    tokens_used: int = 0
+    error_message: str | None = None

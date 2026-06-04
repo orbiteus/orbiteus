@@ -1,0 +1,12 @@
+{
+  "model": "base.model-access",
+  "type": "list",
+  "columns": [
+    { "key": "model_name", "label": "Model" },
+    { "key": "role_name", "label": "Role" },
+    { "key": "perm_read", "label": "Read" },
+    { "key": "perm_write", "label": "Write" },
+    { "key": "perm_create", "label": "Create" },
+    { "key": "perm_unlink", "label": "Delete" }
+  ]
+}

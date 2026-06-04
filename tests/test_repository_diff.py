@@ -109,9 +109,9 @@ def test_diff_handles_added_or_removed_keys():
 def test_audit_optout_models_constant():
     from orbiteus_core.repository import AUDIT_OPTOUT_MODELS
 
-    assert "base.audit_log" in AUDIT_OPTOUT_MODELS
+    assert "base.audit-log" in AUDIT_OPTOUT_MODELS
     assert "base.outbox" in AUDIT_OPTOUT_MODELS
-    assert "base.embedding" in AUDIT_OPTOUT_MODELS
+    assert "base.embedding-record" in AUDIT_OPTOUT_MODELS
 
 
 def test_request_context_has_actor_and_request_id():

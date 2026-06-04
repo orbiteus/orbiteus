@@ -69,7 +69,7 @@ Custom extensions:
 ## Webhooks
 
 - Outbound webhooks are **never synchronous**. They go through the Outbox.
-- `ir_webhook` table: subscriber URL, secret, event mask, status.
+- `base_webhook` table: subscriber URL, secret, event mask, status.
 - Standard headers: `X-Orbiteus-Event`, `X-Orbiteus-Request-Id`,
   `X-Orbiteus-Signature` (HMAC-SHA256 of payload).
 - Retries: exponential backoff up to 24h; after that the row goes to
@@ -105,3 +105,22 @@ GET /api/base/aggregate?model=crm.lead&measure=expected_revenue&group_by=stage_i
 
 Returns rows of `{group_key, group_label, count, sum}`. Used by `<ResourceGraph>`
 and `<AIDashboard>`. Tracked in `23-tree-spec-framework.md`.
+
+## Attachments (filestore)
+
+Record-linked files stored outside PostgreSQL (local path or S3-compatible
+backend). Metadata lives in `base_attachments`.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/base/attachments` | List — `?res_model=` + `?res_id=` (any user with record read), or tenant-wide `?q=` (requires `base.group_system`) |
+| `POST` | `/api/base/attachments` | Multipart upload: `file`, `res_model`, `res_id`, optional `description` |
+| `GET` | `/api/base/attachments/{id}` | Metadata |
+| `GET` | `/api/base/attachments/{id}/download` | Binary stream |
+| `DELETE` | `/api/base/attachments/{id}` | Soft-delete row + remove binary |
+
+RBAC: model `base.attachment` plus read/write on the linked record.
+Portal uploads reuse the same storage via `POST /api/portal/attachment`.
+
+Env: `ATTACHMENT_STORAGE=local`, `ATTACHMENT_STORAGE_PATH=./data/attachments`,
+`ATTACHMENT_MAX_BYTES` (default 50 MiB).

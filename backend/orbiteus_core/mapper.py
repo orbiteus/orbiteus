@@ -60,7 +60,7 @@ def make_base_columns() -> list[Column]:
 
 
 def make_system_columns() -> list[Column]:
-    """Columns for system/ir_* objects (no tenant isolation)."""
+    """Columns for system/engine system objects (no tenant isolation)."""
     return [
         Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
         Column(

@@ -31,20 +31,20 @@ async def deliver_webhook_async(
     if not webhook_id:
         raise ValueError("webhook task requires target_ref=webhook_id")
 
-    from modules.base.model.mapping import ir_webhooks_table
+    from modules.base.model.mapping import base_webhooks_table
     from orbiteus_core.db import AsyncSessionFactory
 
     async with AsyncSessionFactory() as session:
         row = (
             await session.execute(
                 select(
-                    ir_webhooks_table.c.url,
-                    ir_webhooks_table.c.secret,
-                    ir_webhooks_table.c.is_active,
-                    ir_webhooks_table.c.active,
-                    ir_webhooks_table.c.auth_header_name,
-                    ir_webhooks_table.c.auth_header_value,
-                ).where(ir_webhooks_table.c.id == webhook_id)
+                    base_webhooks_table.c.url,
+                    base_webhooks_table.c.secret,
+                    base_webhooks_table.c.is_active,
+                    base_webhooks_table.c.active,
+                    base_webhooks_table.c.auth_header_name,
+                    base_webhooks_table.c.auth_header_value,
+                ).where(base_webhooks_table.c.id == webhook_id)
             )
         ).first()
 
@@ -74,8 +74,8 @@ async def deliver_webhook_async(
 
         # Update last_delivery_* on the row (best effort).
         await session.execute(
-            update(ir_webhooks_table)
-            .where(ir_webhooks_table.c.id == webhook_id)
+            update(base_webhooks_table)
+            .where(base_webhooks_table.c.id == webhook_id)
             .values(
                 last_delivery_at=datetime.now(timezone.utc).isoformat(),
                 last_delivery_status=str(resp.status_code),

@@ -8,7 +8,7 @@
  * (`tenant:{tid}:model:{model}:list`), so we fetch the profile once at
  * mount and cache it in context for the rest of the tree.
  */
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
 
 export interface AuthUser {
@@ -26,32 +26,47 @@ export interface AuthUser {
 
 export interface AuthState {
   user: AuthUser | null;
-  /** True once the client effect has resolved (ok or fail). Consumers
-   *  should gate any logic that depends on `user` on this flag — same
-   *  pattern as `useBranding().hydrated`. */
   hydrated: boolean;
+  refreshUser: () => Promise<void>;
 }
 
-const DEFAULT: AuthState = { user: null, hydrated: false };
+const DEFAULT: AuthState = { user: null, hydrated: false, refreshUser: async () => {} };
 const AuthContext = createContext<AuthState>(DEFAULT);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>(DEFAULT);
+  const [state, setState] = useState<Omit<AuthState, "refreshUser">>({ user: null, hydrated: false });
 
-  useEffect(() => {
-    let cancelled = false;
-    api.get<AuthUser>("/auth/me", { skipGlobalErrorToast: true })
-      .then(({ data }) => {
-        if (!cancelled) setState({ user: data, hydrated: true });
-      })
-      .catch(() => {
-        // 401 → middleware will redirect on the next nav anyway.
-        if (!cancelled) setState({ user: null, hydrated: true });
-      });
-    return () => { cancelled = true; };
+  const refreshUser = useCallback(async () => {
+    try {
+      const { data } = await api.get<AuthUser>("/auth/me", { skipGlobalErrorToast: true });
+      setState({ user: data, hydrated: true });
+    } catch {
+      setState({ user: null, hydrated: true });
+    }
   }, []);
 
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (path === "/login" || path === "/welcome") {
+        setState({ user: null, hydrated: true });
+        return;
+      }
+    }
+    void refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    const onUpdated = () => { void refreshUser(); };
+    window.addEventListener("orbiteus:user-preferences-updated", onUpdated);
+    return () => window.removeEventListener("orbiteus:user-preferences-updated", onUpdated);
+  }, [refreshUser]);
+
+  return (
+    <AuthContext.Provider value={{ ...state, refreshUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthState {

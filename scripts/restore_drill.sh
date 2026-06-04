@@ -70,15 +70,15 @@ if ! gunzip -c "$LATEST" | docker exec -i "$CONTAINER" \
 fi
 
 # Sanity check: the restored DB must contain at least the canonical
-# `ir_*` tables. A successful pg_dump of an empty DB would otherwise
+# `base_*` tables. A successful pg_dump of an empty DB would otherwise
 # silently pass.
 TABLE_COUNT=$(docker exec "$CONTAINER" psql -U orbiteus -d orbiteus -tAc \
   "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'ir\\_%'")
 if [ "${TABLE_COUNT:-0}" -lt 5 ]; then
-  echo "[drill] FAIL: restored DB has only $TABLE_COUNT ir_* tables (expected ≥5)" >&2
+  echo "[drill] FAIL: restored DB has only $TABLE_COUNT base engine tables (expected ≥5)" >&2
   exit 3
 fi
-echo "[drill] restored DB has $TABLE_COUNT ir_* tables — schema looks healthy"
+echo "[drill] restored DB has $TABLE_COUNT base engine tables — schema looks healthy"
 
 END=$(date -u +"%Y%m%dT%H%M%SZ")
 mkdir -p "$(dirname "$DRILL_LOG_FILE")"
@@ -87,7 +87,7 @@ mkdir -p "$(dirname "$DRILL_LOG_FILE")"
   echo "drill_started:  $START"
   echo "drill_finished: $END"
   echo "backup_file:    $LATEST"
-  echo "ir_table_count: $TABLE_COUNT"
+  echo "engine_table_count: $TABLE_COUNT"
   echo "result:         pass"
 } >> "$DRILL_LOG_FILE"
 

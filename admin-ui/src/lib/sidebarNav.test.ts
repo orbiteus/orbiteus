@@ -1,0 +1,87 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildDefaultExpandedSections,
+  findActiveSectionIds,
+  isNavItemActive,
+  mergeExpandedSectionIds,
+  SIDEBAR_COLLAPSED_BY_DEFAULT,
+  type SidebarNavSectionConfig,
+} from "./sidebarNav";
+
+const SECTIONS: SidebarNavSectionConfig[] = [
+  {
+    id: "mod:crm",
+    label: "CRM",
+    items: [
+      { label: "Leads", href: "/crm/lead" },
+      { label: "People", href: "/crm/person" },
+    ],
+  },
+  {
+    id: "ai",
+    label: "AI",
+    items: [
+      { label: "Agents", href: "/base/agent" },
+      { label: "Agent runs", href: "/base/agent-run" },
+    ],
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    items: [{ label: "Users", href: "/base/user" }],
+  },
+  {
+    id: "technical",
+    label: "Technical",
+    items: [{ label: "Models", href: "/base/registry-model" }],
+  },
+];
+
+describe("isNavItemActive", () => {
+  it("matches exact paths and nested routes", () => {
+    expect(isNavItemActive("/crm/lead", "/crm/lead")).toBe(true);
+    expect(isNavItemActive("/crm/lead/abc", "/crm/lead")).toBe(true);
+    expect(isNavItemActive("/crm/person", "/crm/lead")).toBe(false);
+  });
+
+  it("treats dashboard as exact match only", () => {
+    expect(isNavItemActive("/", "/")).toBe(true);
+    expect(isNavItemActive("/crm/lead", "/")).toBe(false);
+  });
+});
+
+describe("findActiveSectionIds", () => {
+  it("returns sections containing the active route", () => {
+    expect(findActiveSectionIds("/crm/lead/new", SECTIONS)).toEqual(["mod:crm"]);
+    expect(findActiveSectionIds("/base/agent-run/1", SECTIONS)).toEqual(["ai"]);
+    expect(findActiveSectionIds("/base/registry-model", SECTIONS)).toEqual(["technical"]);
+  });
+
+  it("returns empty list when nothing matches", () => {
+    expect(findActiveSectionIds("/modules", SECTIONS)).toEqual([]);
+  });
+});
+
+describe("mergeExpandedSectionIds", () => {
+  it("adds missing ids without replacing the set instance when unchanged", () => {
+    const current = new Set(["ai"]);
+    expect(mergeExpandedSectionIds(current, ["ai"])).toBe(current);
+  });
+
+  it("returns a new set when required ids are missing", () => {
+    const current = new Set(["ai"]);
+    const next = mergeExpandedSectionIds(current, ["mod:crm"]);
+    expect(next).toEqual(new Set(["ai", "mod:crm"]));
+    expect(next).not.toBe(current);
+  });
+});
+
+describe("buildDefaultExpandedSections", () => {
+  it("expands all sections except technical by default", () => {
+    const ids = ["mod:crm", "ai", "settings", "technical"];
+    expect(buildDefaultExpandedSections(ids)).toEqual(
+      new Set(["mod:crm", "ai", "settings"]),
+    );
+    expect(SIDEBAR_COLLAPSED_BY_DEFAULT.has("technical")).toBe(true);
+  });
+});

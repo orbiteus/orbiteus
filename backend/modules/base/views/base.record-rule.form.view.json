@@ -1,0 +1,14 @@
+{
+  "model": "base.record-rule",
+  "type": "form",
+  "sections": [
+    {
+      "title": "Rule",
+      "fields": ["name", "model_name", "domain_force", "roles", "is_global"]
+    },
+    {
+      "title": "Permissions",
+      "fields": ["perm_read", "perm_write", "perm_create", "perm_unlink"]
+    }
+  ]
+}

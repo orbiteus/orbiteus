@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from orbiteus_core.ai.budget import has_budget, increment
 from orbiteus_core.ai.config import ai_registry
 from orbiteus_core.ai.keys import fetch_credential, store_credential
-from orbiteus_core.ai.providers import ProviderError, get_provider
+from orbiteus_core.ai.providers import PROVIDER_NAMES, ProviderError, get_provider
+from orbiteus_core.exceptions import NotFound
 from orbiteus_core.ai.redaction import redact_payload
 from orbiteus_core.ai.resolver import resolve as resolve_actions
 from orbiteus_core.ai.tools import build_tools
@@ -59,15 +60,16 @@ async def upsert_credential(
 ) -> dict:
     """Store or update a provider credential for the caller's tenant.
 
-    Body: `{ "provider": "anthropic|openai|ollama",
+    Body: `{ "provider": "anthropic|openai|ollama|gemini",
              "secret": "<api-key>",
              "model_default": "claude-3-5-sonnet-latest",
              "monthly_token_budget": 1000000 }`
     """
     provider = (body.get("provider") or "").lower()
     secret = body.get("secret")
-    if provider not in {"anthropic", "openai", "ollama"}:
-        raise HTTPException(status_code=400, detail="provider must be one of anthropic|openai|ollama")
+    if provider not in PROVIDER_NAMES:
+        allowed = "|".join(sorted(PROVIDER_NAMES))
+        raise HTTPException(status_code=400, detail=f"provider must be one of {allowed}")
     if not secret:
         raise HTTPException(status_code=400, detail="secret is required")
     if ctx.tenant_id is None:
@@ -99,7 +101,7 @@ async def list_credentials(
     """List configured providers for the tenant — never returns secrets."""
     from sqlalchemy import select
 
-    from modules.base.model.mapping import ir_ai_credentials_table as t
+    from modules.base.model.mapping import base_ai_credentials_table as t
 
     if ctx.tenant_id is None:
         return {"items": []}
@@ -139,7 +141,7 @@ async def delete_credential(
 ) -> dict:
     from sqlalchemy import delete
 
-    from modules.base.model.mapping import ir_ai_credentials_table as t
+    from modules.base.model.mapping import base_ai_credentials_table as t
 
     if ctx.tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant context required")
@@ -260,65 +262,39 @@ async def _chat_oneshot(
     session: AsyncSession,
     ctx: RequestContext,
 ) -> dict:
-    """Original non-streaming chat. Body is the same as `/chat`.
-
-    On every accepted reply we:
-      1. Audit each `result.tool_calls` row with `actor=ai`.
-      2. Hand them to `dispatcher.dispatch_tool_call(...)` which
-         routes:
-           * action tools → the Python handler the module registered
-             via `orbiteus_core.ai.dispatcher.register_handler`,
-           * read tools / semantic_search → "skipped" (the AI is
-             expected to ground on the next turn — multi-turn
-             execution lands post-v1.0),
-           * unknown tool names → "error: no_handler".
-
-    Tool execution honours the caller's RBAC because the handler
-    receives the same `session` + `ctx` the request itself runs
-    under. There is no elevated AI context.
-    """
-    from orbiteus_core.ai.dispatcher import dispatch_tool_call
+    """Non-streaming chat with multi-turn tool execution via `AgentLoop`."""
+    from orbiteus_core.ai.loop import apply_usage_budget, run_agent_loop
+    from orbiteus_core.ai.keys import fetch_credential as _fetch_cred
 
     p, cred, messages, tools, provider_name = await _resolve_chat_inputs(body, session, ctx)
+
+    embed_cred = await _fetch_cred(session, tenant_id=ctx.tenant_id, provider="openai")
+    embed_key = embed_cred["secret"] if embed_cred else None
+
     try:
-        result = await p.chat(
-            cred["secret"],
+        loop_result = await run_agent_loop(
+            session,
+            ctx,
+            provider=p,
+            api_key=cred["secret"],
             messages=messages,
             tools=tools,
             model=body.get("model") or cred.get("model_default"),
+            embed_api_key=embed_key,
+            provider_name=provider_name,
         )
     except ProviderError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    if result.usage_tokens:
-        await increment(ctx.tenant_id, result.usage_tokens)
-
-    await _audit_tool_calls(
-        session, ctx, result.tool_calls,
-        provider_name=provider_name, body=body, cred=cred,
-        usage_tokens=result.usage_tokens,
-    )
-
-    tool_results: list[dict[str, Any]] = []
-    for tool_call in result.tool_calls or []:
-        outcome = await dispatch_tool_call(
-            session,
-            ctx,
-            name=str(tool_call.get("name", "")),
-            arguments=tool_call.get("arguments") or {},
-        )
-        tool_results.append({
-            "tool_call_id": tool_call.get("id"),
-            "name": tool_call.get("name"),
-            **outcome,
-        })
+    if loop_result.usage_tokens:
+        await apply_usage_budget(ctx.tenant_id, loop_result.usage_tokens)
 
     return {
-        "text": result.text,
-        "tool_calls": result.tool_calls,
-        "tool_results": tool_results,
-        "usage_tokens": result.usage_tokens,
-        "finish_reason": result.finish_reason,
+        "text": loop_result.text,
+        "tool_trace": loop_result.tool_trace,
+        "usage_tokens": loop_result.usage_tokens,
+        "turns": loop_result.turns,
+        "finish_reason": "stop",
     }
 
 
@@ -327,34 +303,40 @@ async def _chat_stream(
     session: AsyncSession,
     ctx: RequestContext,
 ):
-    """Streaming variant — returns a `text/event-stream` `StreamingResponse`."""
+    """Streaming chat with multi-turn tool execution via `run_agent_loop_stream`."""
     import json as _json
 
     from fastapi.responses import StreamingResponse
 
+    from orbiteus_core.ai.keys import fetch_credential as _fetch_cred
+    from orbiteus_core.ai.loop import apply_usage_budget, run_agent_loop_stream
+
     p, cred, messages, tools, provider_name = await _resolve_chat_inputs(body, session, ctx)
+    embed_cred = await _fetch_cred(session, tenant_id=ctx.tenant_id, provider="openai")
+    embed_key = embed_cred["secret"] if embed_cred else None
 
     async def _sse() -> Any:
-        accumulated_tool_calls: list[dict[str, Any]] = []
         usage_tokens = 0
-        finish_reason = "stop"
+        tool_trace: list[dict[str, Any]] = []
         try:
-            async for event in p.chat_stream(
-                cred["secret"],
+            async for event in run_agent_loop_stream(
+                session,
+                ctx,
+                provider=p,
+                api_key=cred["secret"],
                 messages=messages,
                 tools=tools,
                 model=body.get("model") or cred.get("model_default"),
+                embed_api_key=embed_key,
+                provider_name=provider_name,
             ):
                 yield (
                     f"event: {event.kind}\n"
                     f"data: {_json.dumps(event.data)}\n\n"
                 ).encode("utf-8")
-
-                if event.kind == "tool_call":
-                    accumulated_tool_calls.append(event.data)
-                elif event.kind == "done":
+                if event.kind == "done":
                     usage_tokens = int(event.data.get("usage_tokens", 0) or 0)
-                    finish_reason = str(event.data.get("finish_reason") or "stop")
+                    tool_trace = list(event.data.get("tool_trace") or [])
         except ProviderError as exc:
             yield (
                 "event: error\n"
@@ -369,22 +351,160 @@ async def _chat_stream(
             ).encode("utf-8")
             return
 
-        # After the SSE stream finishes, persist usage + audit.
         if usage_tokens:
             try:
-                await increment(ctx.tenant_id, usage_tokens)
+                await apply_usage_budget(ctx.tenant_id, usage_tokens)
             except Exception:  # noqa: BLE001
                 logger.exception("ai.chat_stream.budget_increment_failed")
+
+        tool_calls = [
+            step for step in tool_trace
+            if step.get("name")
+        ]
         try:
             await _audit_tool_calls(
-                session, ctx, accumulated_tool_calls,
-                provider_name=provider_name, body=body, cred=cred,
+                session,
+                ctx,
+                [{"id": f"stream-{i}", "name": s.get("name"), "arguments": s.get("arguments", {})}
+                 for i, s in enumerate(tool_calls)],
+                provider_name=provider_name,
+                body=body,
+                cred=cred,
                 usage_tokens=usage_tokens,
             )
         except Exception:  # noqa: BLE001
             logger.exception("ai.chat_stream.audit_failed")
 
     return StreamingResponse(_sse(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Agent runs (ADR-0018)
+# ---------------------------------------------------------------------------
+
+@router.post("/runs")
+async def start_agent_run(
+    body: dict = Body(...),
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    """Start an agent run.
+
+    Body: `{ "agent_id": "<uuid>", "prompt": "...", "async": false }`
+
+    When `async` is true the run is enqueued to Celery and returns
+    immediately with `status=pending`.
+    """
+    from orbiteus_core.ai.executor import create_and_execute_run, load_agent
+    from orbiteus_core.exceptions import ValidationError as DomainValidationError
+
+    agent_id_raw = body.get("agent_id")
+    prompt = (body.get("prompt") or "").strip()
+    is_async = bool(body.get("async"))
+
+    if not agent_id_raw:
+        raise HTTPException(status_code=400, detail="agent_id is required")
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    try:
+        agent_id = uuid.UUID(str(agent_id_raw))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid agent_id") from exc
+
+    try:
+        await load_agent(session, ctx, agent_id)
+    except NotFound:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    parent_run_id_raw = body.get("parent_run_id")
+    parent_run_id = None
+    if parent_run_id_raw:
+        try:
+            parent_run_id = uuid.UUID(str(parent_run_id_raw))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="invalid parent_run_id") from exc
+
+    if is_async:
+        from modules.base.controller.repositories import AgentRunRepository
+
+        run_repo = AgentRunRepository(session, ctx)
+        run = await run_repo.create(
+            {
+                "agent_id": agent_id,
+                "parent_run_id": parent_run_id,
+                "depth": int(body.get("depth") or 0),
+                "triggered_by_user_id": ctx.user_id,
+                "input_prompt": prompt,
+                "status": "pending",
+            }
+        )
+        await session.commit()
+        from tasks.ai_tasks import run_agent_run
+
+        run_agent_run.delay(
+            str(run.id),
+            str(ctx.tenant_id),
+            str(ctx.user_id) if ctx.user_id else "",
+            list(ctx.roles),
+            bool(ctx.is_superadmin),
+        )
+        return {
+            "id": str(run.id),
+            "agent_id": str(agent_id),
+            "status": "pending",
+            "async": True,
+        }
+
+    try:
+        if parent_run_id:
+            from orbiteus_core.ai.executor import create_and_execute_run
+
+            result = await create_and_execute_run(
+                session,
+                ctx,
+                agent_id=agent_id,
+                prompt=prompt,
+                parent_run_id=parent_run_id,
+                depth=int(body.get("depth") or 0),
+            )
+        else:
+            result = await create_and_execute_run(
+                session, ctx, agent_id=agent_id, prompt=prompt,
+            )
+    except DomainValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return {
+        "id": result.get("run_id"),
+        "agent_id": result.get("agent_id"),
+        "status": "completed",
+        "text": result.get("text"),
+        "tool_trace": result.get("tool_trace"),
+        "usage_tokens": result.get("usage_tokens"),
+        "turns": result.get("turns"),
+    }
+
+
+@router.get("/runs/{run_id}")
+async def get_agent_run(
+    run_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    from modules.base.controller.repositories import AgentRunRepository
+    from modules.base.model.schemas import AgentRunRead
+
+    repo = AgentRunRepository(session, ctx)
+    try:
+        run = await repo.get(run_id)
+    except NotFound:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    payload = AgentRunRead.model_validate(run, from_attributes=True).model_dump(mode="json")
+    return payload
 
 
 # ---------------------------------------------------------------------------

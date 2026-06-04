@@ -7,15 +7,11 @@ import {
 } from "./formatters";
 
 describe("humanizeRegistrySlugForUi", () => {
-  it("strips leading ir- / IR- before title-casing", () => {
-    expect(humanizeRegistrySlugForUi("ir-model")).toBe("Model");
-    expect(humanizeRegistrySlugForUi("IR-MODEL")).toBe("Model");
-    expect(humanizeRegistrySlugForUi("ir-model-access")).toBe("Model Access");
-  });
-
-  it("strips leading ir_ for snake_case fragments", () => {
-    expect(humanizeRegistrySlugForUi("ir_model")).toBe("Model");
-    expect(humanizeRegistrySlugForUi("ir_model_access")).toBe("Model Access");
+  it("strips registry- / record- prefixes before title-casing", () => {
+    expect(humanizeRegistrySlugForUi("registry-model")).toBe("Model");
+    expect(humanizeRegistrySlugForUi("REGISTRY-MODEL")).toBe("Model");
+    expect(humanizeRegistrySlugForUi("model-access")).toBe("Model Access");
+    expect(humanizeRegistrySlugForUi("record-rule")).toBe("Rule");
   });
 
   it("does not change non-registry slugs", () => {

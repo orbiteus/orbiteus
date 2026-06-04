@@ -1,49 +1,50 @@
 "use client";
-import { use, useEffect, useState } from "react";
-import { getCachedUiConfig, findModel, modelToFormStructure, type FormPanels } from "@/lib/modelConfig";
+import { use, useMemo } from "react";
 import ResourceForm, { type FieldDef } from "@/components/ResourceForm";
 import { Loader, Center } from "@mantine/core";
-import { humanizeRegistrySlugForUi } from "@/lib/formatters";
+import UnknownModelNotice from "@/components/UnknownModelNotice";
+import { isKnownModel } from "@/lib/knownModels";
+import { useUiConfig, useUiConfigModel } from "@/lib/queries/uiConfig";
+import { useTranslatedFormStructure, useTranslatedModelTitle } from "@/lib/translatedModel";
+import { useT } from "@orbiteus/i18n";
+import type { FormPanels } from "@/lib/modelConfig";
 
 interface Params { module: string; model: string; id: string; }
 
 const FALLBACK: FieldDef[] = [{ key: "name", label: "Name", type: "text", required: true }];
 
-// Next 16 made route params async (see /[module]/[model]/page.tsx for details).
 export default function DynamicEditPage({ params }: { params: Promise<Params> }) {
   const { module: mod, model, id } = use(params);
   const resource = `${mod}/${model}`;
-  const title = humanizeRegistrySlugForUi(model);
-  const [form, setForm] = useState<{ fields: FieldDef[]; panels?: FormPanels } | null>(null);
+  const t = useT();
+  const uiConfig = useUiConfig();
+  const { model: cfg, isLoading, isFetched } = useUiConfigModel(mod, model);
+  const title = useTranslatedModelTitle(cfg, model);
+  const form = useTranslatedFormStructure(cfg);
 
-  useEffect(() => {
-    let cancelled = false;
-    getCachedUiConfig()
-      .then((cfg) => {
-        if (cancelled) return;
-        const m = findModel(cfg, mod, model);
-        if (m && m.fields.length > 0) {
-          setForm(modelToFormStructure(m));
-        } else {
-          setForm({ fields: FALLBACK });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setForm({ fields: FALLBACK });
-      });
-    return () => { cancelled = true; };
-  }, [mod, model]);
+  if (isFetched && !isKnownModel(uiConfig.data, mod, model)) {
+    return <UnknownModelNotice module={mod} model={model} />;
+  }
 
-  if (form === null) return <Center h={200}><Loader color="gray" size="sm" /></Center>;
+  const resolved = useMemo((): { fields: FieldDef[]; panels?: FormPanels } | null => {
+    if (!isFetched && isLoading) return null;
+    if (form && cfg && cfg.fields.length > 0) return form;
+    return { fields: FALLBACK };
+  }, [form, cfg, isLoading, isFetched]);
+
+  if (!resolved) {
+    return <Center h={200}><Loader color="gray" size="sm" /></Center>;
+  }
 
   return (
     <ResourceForm
-      title={`Edit — ${title}`}
+      title={t("form.editTitle", { title })}
       resource={resource}
       recordId={id}
-      fields={form.fields}
-      panels={form.panels}
+      fields={resolved.fields}
+      panels={resolved.panels}
       backHref={`/${mod}/${model}`}
+      aiScope={`module:${mod}` as const}
     />
   );
 }

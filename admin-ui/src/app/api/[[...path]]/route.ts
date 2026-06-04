@@ -70,15 +70,26 @@ async function proxy(req: NextRequest, segments: string[]) {
     init.duplex = "half";
   }
 
-  const upstream = await fetch(target, init);
+  try {
+    const upstream = await fetch(target, init);
 
-  const res = new NextResponse(upstream.body, {
-    status: upstream.status,
-    statusText: upstream.statusText,
-  });
+    const res = new NextResponse(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+    });
 
-  copyUpstreamHeaders(upstream.headers, res);
-  return res;
+    copyUpstreamHeaders(upstream.headers, res);
+    return res;
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Upstream request failed";
+    return NextResponse.json(
+      {
+        detail: `API unreachable (${message}). If you use Docker dev, wait until Next.js is ready and backend is up.`,
+      },
+      { status: 503 },
+    );
+  }
 }
 
 type RouteCtx = { params: Promise<{ path?: string[] }> };

@@ -178,9 +178,13 @@ jobs:
       - name: Wait for backend health
         run: |
           for _ in $(seq 1 30); do
-            curl -fsS http://localhost:8000/health && break
+            curl -fsS http://127.0.0.1:8000/api/health/live && break
             sleep 2
           done
+      - name: OpenAPI types drift check
+        run: |
+          chmod +x scripts/check_openapi_codegen.sh
+          OPENAPI_URL=http://127.0.0.1:8000/api/openapi.json ./scripts/check_openapi_codegen.sh --live
       - name: Run Playwright (deterministic subset)
         env:
           E2E_BASE_URL: http://localhost:3000

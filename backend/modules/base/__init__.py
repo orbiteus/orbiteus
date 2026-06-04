@@ -1,1 +1,1 @@
-"""Base module – foundation of Orbiteus (tenants, companies, users, ir_* objects)."""
+"""Base module – foundation of Orbiteus (tenants, companies, users, engine system objects)."""

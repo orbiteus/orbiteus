@@ -40,57 +40,55 @@ import {
   IconSparkles,
   IconUsers,
 } from "@tabler/icons-react";
+import { useT } from "@orbiteus/i18n";
 import { useBranding } from "@/lib/branding";
 
 const fluidPx = { base: "md", sm: "xl", lg: "3rem", xl: "4rem" } as const;
 
-const ROLE_CARDS: {
-  title: string;
-  blurb: string;
-  features: string[];
-  icon: typeof IconShieldLock;
-}[] = [
-  {
-    title: "Super administrator",
-    blurb:
-      "Bootstrap account with full technical access — RBAC, system parameters, and module configuration.",
-    features: [
-      "Manage users, roles, and record rules",
-      "Technical models, cron jobs, sequences",
-      "Branding and instance-wide settings",
-    ],
-    icon: IconShieldLock,
-  },
-  {
-    title: "Operations workspace",
-    blurb:
-      "Day-to-day work — list / form / kanban / calendar / graph views over the registered modules in the same tenant.",
-    features: [
-      "Auto-generated CRUD per model",
-      "List + Kanban + Calendar + Graph perspectives",
-      "Fuzzy search and Command Palette (⌘K)",
-    ],
-    icon: IconUsers,
-  },
-  {
-    title: "Headless engine",
-    blurb:
-      "Treat Orbiteus as a headless engine — OpenAPI-first, module registry, no vendor UI lock-in.",
-    features: [
-      "Auto-generated REST + OpenAPI per model",
-      "Extend with registry.register(\"your_module\")",
-      "PostgreSQL + Alembic migrations at startup",
-    ],
-    icon: IconApi,
-  },
-];
-
 type HealthJson = { status?: string; service?: string };
 
 export default function WelcomePage() {
+  const t = useT();
   const branding = useBranding();
   const [health, setHealth] = useState<HealthJson | null>(null);
   const [healthErr, setHealthErr] = useState(false);
+  const roleCards: {
+    title: string;
+    blurb: string;
+    features: string[];
+    icon: typeof IconShieldLock;
+  }[] = [
+    {
+      title: t("welcome.card.superadmin.title"),
+      blurb: t("welcome.card.superadmin.blurb"),
+      features: [
+        t("welcome.card.superadmin.feature1"),
+        t("welcome.card.superadmin.feature2"),
+        t("welcome.card.superadmin.feature3"),
+      ],
+      icon: IconShieldLock,
+    },
+    {
+      title: t("welcome.card.ops.title"),
+      blurb: t("welcome.card.ops.blurb"),
+      features: [
+        t("welcome.card.ops.feature1"),
+        t("welcome.card.ops.feature2"),
+        t("welcome.card.ops.feature3"),
+      ],
+      icon: IconUsers,
+    },
+    {
+      title: t("welcome.card.headless.title"),
+      blurb: t("welcome.card.headless.blurb"),
+      features: [
+        t("welcome.card.headless.feature1"),
+        t("welcome.card.headless.feature2"),
+        t("welcome.card.headless.feature3"),
+      ],
+      icon: IconApi,
+    },
+  ];
 
   useEffect(() => {
     let cancelled = false;
@@ -143,8 +141,7 @@ export default function WelcomePage() {
                 maw={{ base: "100%", md: "42rem", lg: "50rem" }}
                 lh={1.55}
               >
-                Development engine for AI agents that build custom ERP / CRM apps.
-                Open-source, MIT, FastAPI + Next.js, PostgreSQL + pgvector.
+                {t("welcome.heroTagline")}
               </Text>
             </Flex>
           </Box>
@@ -157,7 +154,7 @@ export default function WelcomePage() {
               fw={700}
               w="100%"
             >
-              Welcome to your Orbiteus installation
+              {t("welcome.title")}
             </Title>
             <Text
               c="dimmed"
@@ -167,11 +164,7 @@ export default function WelcomePage() {
               maw={{ base: "100%", md: "48rem", lg: "56rem" }}
               size="md"
             >
-              This is the public entry of your demo instance — the same Next.js +
-              FastAPI codebase as in the repository, with live PostgreSQL,
-              auto-generated CRUD, registry-driven modules, Command Palette
-              (⌘K) and OpenAPI per model. A modular onboarding layout for
-              Orbiteus.
+              {t("welcome.intro")}
             </Text>
             <Group>
               <Button
@@ -181,7 +174,7 @@ export default function WelcomePage() {
                 color="dark"
                 size="md"
               >
-                Sign in
+                {t("auth.signIn")}
               </Button>
               <Button
                 component="a"
@@ -191,17 +184,17 @@ export default function WelcomePage() {
                 variant="default"
                 leftSection={<IconBrandGithub size={18} />}
               >
-                README on GitHub
+                {t("welcome.readmeGithub")}
               </Button>
             </Group>
           </Stack>
 
           <Box w="100%">
             <Title order={3} mb="md">
-              What ships out of the box
+              {t("welcome.whatShips")}
             </Title>
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" w="100%">
-              {ROLE_CARDS.map((card) => {
+              {roleCards.map((card) => {
                 const RoleIcon = card.icon;
                 return (
                   <Card
@@ -249,18 +242,18 @@ export default function WelcomePage() {
               <ThemeIcon variant="light" color="dark" radius="xl" size="md">
                 <IconDatabase size={16} />
               </ThemeIcon>
-              <Title order={4}>Reference stack</Title>
+              <Title order={4}>{t("welcome.referenceStack")}</Title>
             </Group>
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
               <Stack gap={2}>
                 <Text size="xs" tt="uppercase" fw={700} c="dimmed">
-                  Backend
+                  {t("welcome.backend")}
                 </Text>
                 <Code block>FastAPI · SQLAlchemy · PostgreSQL · pgvector · Redis · Celery</Code>
               </Stack>
               <Stack gap={2}>
                 <Text size="xs" tt="uppercase" fw={700} c="dimmed">
-                  Frontend
+                  {t("welcome.frontend")}
                 </Text>
                 <Code block>Next.js (App Router) · Mantine · TanStack Query</Code>
               </Stack>
@@ -272,7 +265,7 @@ export default function WelcomePage() {
               <ThemeIcon variant="light" color="dark" radius="xl" size="md">
                 <IconSparkles size={16} />
               </ThemeIcon>
-              <Title order={4}>Live status</Title>
+              <Title order={4}>{t("welcome.liveStatus")}</Title>
             </Group>
             <Group gap="xs">
               <Badge
@@ -281,17 +274,17 @@ export default function WelcomePage() {
                 size="lg"
               >
                 {healthErr
-                  ? "Backend unreachable"
+                  ? t("welcome.backendUnreachable")
                   : health?.status
-                    ? `Backend: ${health.status}`
-                    : "Pinging backend…"}
+                    ? t("welcome.backendStatus", { status: health.status })
+                    : t("welcome.pingingBackend")}
               </Badge>
               <Anchor href="/api/base/health" target="_blank" rel="noreferrer" size="sm">
                 /api/base/health
               </Anchor>
               <Anchor href="/api/docs" target="_blank" rel="noreferrer" size="sm">
                 <IconBook size={14} style={{ verticalAlign: "middle", marginRight: 4 }} />
-                OpenAPI docs
+                {t("welcome.openapiDocs")}
               </Anchor>
             </Group>
           </Box>

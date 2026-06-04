@@ -211,3 +211,22 @@ person_id: UUID
 - [ ] No cross-module Python imports needed.
 
 If any answer is "no", extend an existing module instead.
+
+## Enable / disable (Module catalog)
+
+Orbiteus is a **modular monolith**: modules are `registry.register(...)` at
+**process startup**, not hot-plugged at runtime.
+
+| Layer | What the toggle does today |
+|-------|----------------------------|
+| **Persistence** | `base_config_params` key `module.<name>.enabled` (`true` / `false`) |
+| **Backend read paths** | Filter **ui-config**, **i18n locales/messages**, user `language` normalization |
+| **Backend API routes** | Still mounted until **process restart** (runtime unload deferred) |
+| **Admin SPA** | `applyModuleToggleSideEffects()` — invalidate TanStack Query (`ui-config`, `i18n`, `resource`, `attachments`); redirect to `/` if you are on a route under a module that was just disabled |
+
+**Operator expectation:** “Off” means hidden from nav and dependent features
+(Languages, lists, etc.) without redeploy. **Not** the same as removing
+`registry.register("crm")` from `api.py` — that still requires a backend restart.
+
+**Full browser reload** is not required for catalog toggles when caches are
+invalidated; use restart when you change **code** or **registry membership**.

@@ -44,8 +44,8 @@ async def _audit_portal(
     resource_id: uuid.UUID,
     diff: dict[str, Any],
 ) -> None:
-    """Write an `ir_audit_log` row with `actor=portal`."""
-    from modules.base.model.mapping import ir_audit_log_table as audit
+    """Write an `base_audit_log` row with `actor=portal`."""
+    from modules.base.model.mapping import base_audit_log_table as audit
 
     await session.execute(
         insert(audit).values(
@@ -243,8 +243,8 @@ async def post_comment(
         raise HTTPException(status_code=400, detail=str(exc))
     _require_permission(share.permissions, "comment")
 
-    # Reuse `ir_attachments` as a lightweight comment store keyed by res_model.
-    # Comments live in `ir_comments` once that table exists; until then we
+    # Reuse `base_attachments` as a lightweight comment store keyed by res_model.
+    # Comments live in `base_comments` once that table exists; until then we
     # serialize them to the audit log + return a comment id for the UI.
     comment_id = uuid.uuid4()
     await _audit_portal(
@@ -270,7 +270,7 @@ async def post_attachment(
     """Upload an attachment to the shared resource.
 
     Form: `token` + multipart `file`. Honours portal `attach_file` permission.
-    Stores the file metadata in `ir_attachments` (binary lives outside DB; the
+    Stores the file metadata in `base_attachments` (binary lives outside DB; the
     upload pipeline is finalised in `docs/15-ai-layer.md` follow-up).
     """
     try:
@@ -286,29 +286,17 @@ async def post_attachment(
     if len(contents) > 25 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="file too large (25 MB cap)")
 
-    from modules.base.model.mapping import ir_attachments_table as attach
+    from modules.base.controller.attachment_service import AttachmentService
 
-    attachment_id = uuid.uuid4()
-    await session.execute(
-        insert(attach).values(
-            id=attachment_id,
-            tenant_id=share.tenant_id,
-            company_id=None,
-            create_date=datetime.now(timezone.utc),
-            write_date=datetime.now(timezone.utc),
-            active=True,
-            custom_fields={},
-            created_by_id=None,
-            modified_by_id=None,
-            name=file.filename,
-            res_model=share.resource_model,
-            res_id=share.resource_id,
-            mimetype=file.content_type or "application/octet-stream",
-            file_size=len(contents),
-            store_fname=f"portal/{share.tenant_id}/{attachment_id}",
-            url=None,
-            description=description[:500],
-        )
+    result = await AttachmentService(session).upload_portal(
+        tenant_id=share.tenant_id,
+        user_id=share.issued_by,
+        res_model=share.resource_model,
+        res_id=share.resource_id,
+        file_bytes=contents,
+        filename=file.filename,
+        mimetype=file.content_type or "application/octet-stream",
+        description=description,
     )
     await _audit_portal(
         session,
@@ -318,15 +306,10 @@ async def post_attachment(
         resource_model=share.resource_model,
         resource_id=share.resource_id,
         diff={
-            "attachment_id": [None, str(attachment_id)],
+            "attachment_id": [None, result["id"]],
             "filename": [None, file.filename],
             "size": [None, len(contents)],
         },
     )
     await session.commit()
-    return {
-        "id": str(attachment_id),
-        "filename": file.filename,
-        "size": len(contents),
-        "store_fname": f"portal/{share.tenant_id}/{attachment_id}",
-    }
+    return result

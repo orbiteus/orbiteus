@@ -1,7 +1,7 @@
 """Webhook delivery + dead-letter contract — DoD §5.5 / §5.6.
 
-Two contracts, both exercised against the real Postgres `ir_outbox` and
-`ir_webhooks` tables (the dev compose stack the rest of the suite already
+Two contracts, both exercised against the real Postgres `base_outbox` and
+`base_webhooks` tables (the dev compose stack the rest of the suite already
 relies on):
 
   1.  Happy path.
@@ -98,7 +98,7 @@ def _import_outbox_tasks():
 # ---------------------------------------------------------------------------
 
 async def _seed_webhook_and_outbox(*, status_code: int) -> tuple[uuid.UUID, uuid.UUID]:
-    """Insert one `ir_webhook` + one matching `pending` `ir_outbox` row.
+    """Insert one `base_webhook` + one matching `pending` `base_outbox` row.
 
     Returns ``(webhook_id, outbox_id)``. The caller cleans up by id.
     """
@@ -106,8 +106,8 @@ async def _seed_webhook_and_outbox(*, status_code: int) -> tuple[uuid.UUID, uuid
     from sqlalchemy import insert
 
     from modules.base.model.mapping import (
-        ir_outbox_table,
-        ir_webhooks_table,
+        base_outbox_table,
+        base_webhooks_table,
     )
     from orbiteus_core.db import AsyncSessionFactory
 
@@ -117,7 +117,7 @@ async def _seed_webhook_and_outbox(*, status_code: int) -> tuple[uuid.UUID, uuid
 
     async with AsyncSessionFactory() as session:
         await session.execute(
-            insert(ir_webhooks_table).values(
+            insert(base_webhooks_table).values(
                 id=webhook_id,
                 create_date=now,
                 write_date=now,
@@ -133,7 +133,7 @@ async def _seed_webhook_and_outbox(*, status_code: int) -> tuple[uuid.UUID, uuid
             )
         )
         await session.execute(
-            insert(ir_outbox_table).values(
+            insert(base_outbox_table).values(
                 id=outbox_id,
                 create_date=now,
                 write_date=now,
@@ -155,16 +155,16 @@ async def _read_outbox_status(outbox_id: uuid.UUID) -> tuple[str, int]:
     _ensure_backend_path()
     from sqlalchemy import select
 
-    from modules.base.model.mapping import ir_outbox_table
+    from modules.base.model.mapping import base_outbox_table
     from orbiteus_core.db import AsyncSessionFactory
 
     async with AsyncSessionFactory() as session:
         row = (
             await session.execute(
                 select(
-                    ir_outbox_table.c.status,
-                    ir_outbox_table.c.retries,
-                ).where(ir_outbox_table.c.id == outbox_id)
+                    base_outbox_table.c.status,
+                    base_outbox_table.c.retries,
+                ).where(base_outbox_table.c.id == outbox_id)
             )
         ).first()
     assert row is not None
@@ -175,15 +175,15 @@ async def _cleanup(webhook_id: uuid.UUID, outbox_id: uuid.UUID) -> None:
     _ensure_backend_path()
     from sqlalchemy import delete
 
-    from modules.base.model.mapping import ir_outbox_table, ir_webhooks_table
+    from modules.base.model.mapping import base_outbox_table, base_webhooks_table
     from orbiteus_core.db import AsyncSessionFactory, engine
 
     async with AsyncSessionFactory() as session:
         await session.execute(
-            delete(ir_outbox_table).where(ir_outbox_table.c.id == outbox_id)
+            delete(base_outbox_table).where(base_outbox_table.c.id == outbox_id)
         )
         await session.execute(
-            delete(ir_webhooks_table).where(ir_webhooks_table.c.id == webhook_id)
+            delete(base_webhooks_table).where(base_webhooks_table.c.id == webhook_id)
         )
         await session.commit()
     # The engine binds asyncpg connections to the current event loop; if a

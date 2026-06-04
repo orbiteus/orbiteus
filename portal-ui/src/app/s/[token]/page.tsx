@@ -15,57 +15,37 @@ import {
   Title,
 } from "@mantine/core";
 import { IconCheck, IconPaperclip, IconSend } from "@tabler/icons-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useT } from "@orbiteus/i18n";
 
+import { extractApiError } from "@/lib/api";
+import {
+  usePortalAttachment,
+  usePortalComment,
+  useShareResourceView,
+} from "@/lib/queries/share";
 import { useRealtimeShareResource } from "@/lib/realtime";
 
-interface ResourceView {
-  resource_model: string;
-  resource_id: string;
-  permissions: string[];
-  /** Surfaced by `/api/portal/exchange` so the realtime hook can build the topic. */
-  tenant_id: string;
-  /** "readonly" by default — DoD §12.5. */
-  view_mode: "readonly" | "editable";
-  /** Mutation endpoints the share-token unlocks (DoD §12.4). */
-  available_mutations: string[];
-  payload: Record<string, unknown>;
+export default function ShareLinkPage({ params }: { params: { token: string } }) {
+  return <ShareLinkPageInner params={params} />;
 }
 
-export default function ShareLinkPage({ params }: { params: { token: string } }) {
-  const [view, setView] = useState<ResourceView | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
-  // "live" badge — flashes on every realtime event so the visitor knows the
-  // page reflects the latest state without a manual reload.
+function ShareLinkPageInner({ params }: { params: { token: string } }) {
+  const t = useT();
+  const viewQuery = useShareResourceView(params.token);
+  const view = viewQuery.data ?? null;
+  const error = viewQuery.isError
+    ? extractApiError(viewQuery.error, t("portal.share.invalidLink"))
+    : null;
+  const loading = viewQuery.isLoading && !viewQuery.data;
+
   const [liveAt, setLiveAt] = useState<number | null>(null);
 
-  const reload = useCallback(() => setRefreshTick((t) => t + 1), []);
+  const onRealtime = useCallback(() => {
+    setLiveAt(Date.now());
+    void viewQuery.refetch();
+  }, [viewQuery]);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/portal/exchange?token=${encodeURIComponent(params.token)}`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.detail ?? "Invalid or expired share link");
-        }
-        return (await r.json()) as ResourceView;
-      })
-      .then((data) => {
-        if (!cancelled) setView(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [params.token, refreshTick]);
-
-  // Subscribe to realtime updates for this resource. When the backend
-  // emits `record.updated`, refetch `/api/portal/exchange` so the page
-  // reflects the new payload without forcing the visitor to reload.
   useRealtimeShareResource(
     {
       shareToken: params.token,
@@ -73,13 +53,9 @@ export default function ShareLinkPage({ params }: { params: { token: string } })
       model: view?.resource_model,
       recordId: view?.resource_id,
     },
-    () => {
-      setLiveAt(Date.now());
-      reload();
-    },
+    onRealtime,
   );
 
-  // -- Mutations --------------------------------------------------------
   const canComment = view?.available_mutations.includes("portal.comment") ?? false;
   const canAttach = view?.available_mutations.includes("portal.attachment") ?? false;
 
@@ -87,15 +63,15 @@ export default function ShareLinkPage({ params }: { params: { token: string } })
     <Container size="md" py="xl">
       <Stack gap="md">
         <Group justify="space-between">
-          <Title order={2}>Shared resource</Title>
+          <Title order={2}>{t("portal.share.title")}</Title>
           {liveAt ? (
             <Badge color="green" variant="light">
-              live · last update {new Date(liveAt).toLocaleTimeString()}
+              {t("portal.share.liveUpdate", { time: new Date(liveAt).toLocaleTimeString() })}
             </Badge>
           ) : null}
         </Group>
-        {error ? <Alert color="red" title="Cannot open the share link">{error}</Alert> : null}
-        {!error && !view ? <Loader /> : null}
+        {error ? <Alert color="red" title={t("portal.share.cannotOpen")}>{error}</Alert> : null}
+        {loading ? <Loader /> : null}
         {view ? (
           <>
             <Paper withBorder p="md">
@@ -108,18 +84,14 @@ export default function ShareLinkPage({ params }: { params: { token: string } })
                 </Badge>
               </Group>
               <Text size="sm" c="dimmed" mt="xs">
-                Permissions: {view.permissions.join(", ")}
+                {t("portal.share.permissions")}: {view.permissions.join(", ")}
               </Text>
               <pre style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
                 {JSON.stringify(view.payload, null, 2)}
               </pre>
             </Paper>
-            {canComment ? (
-              <CommentSurface token={params.token} onSubmitted={reload} />
-            ) : null}
-            {canAttach ? (
-              <AttachmentSurface token={params.token} onSubmitted={reload} />
-            ) : null}
+            {canComment ? <CommentSurface token={params.token} /> : null}
+            {canAttach ? <AttachmentSurface token={params.token} /> : null}
           </>
         ) : null}
       </Stack>
@@ -127,55 +99,30 @@ export default function ShareLinkPage({ params }: { params: { token: string } })
   );
 }
 
-
-// ---------------------------------------------------------------------------
-// Comment surface — POST /api/portal/comment
-// ---------------------------------------------------------------------------
-
-function CommentSurface({
-  token, onSubmitted,
-}: {
-  token: string;
-  onSubmitted: () => void;
-}) {
+function CommentSurface({ token }: { token: string }) {
+  const t = useT();
+  const commentMutation = usePortalComment(token);
   const [body, setBody] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
 
   async function handleSubmit() {
     if (!body.trim()) return;
-    setSubmitting(true);
     setFeedback(null);
     try {
-      const r = await fetch("/api/portal/comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, body }),
-      });
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        const detail = typeof j.detail === "string" ? j.detail : "Could not post comment.";
-        throw new Error(detail);
-      }
+      await commentMutation.mutateAsync(body.trim());
       setBody("");
-      setFeedback({ kind: "ok", msg: "Comment recorded." });
-      onSubmitted();
+      setFeedback({ kind: "ok", msg: t("portal.share.commentRecorded") });
     } catch (err) {
-      setFeedback({
-        kind: "err",
-        msg: err instanceof Error ? err.message : "Could not post comment.",
-      });
-    } finally {
-      setSubmitting(false);
+      setFeedback({ kind: "err", msg: extractApiError(err, t("portal.share.commentFailed")) });
     }
   }
 
   return (
     <Paper withBorder p="md">
       <Stack gap="sm">
-        <Title order={4}>Add a comment</Title>
+        <Title order={4}>{t("portal.share.addComment")}</Title>
         <Textarea
-          placeholder="Write a quick update and press Send to attach it to the record."
+          placeholder={t("portal.share.commentPlaceholder")}
           value={body}
           onChange={(e) => setBody(e.currentTarget.value)}
           autosize
@@ -190,11 +137,11 @@ function CommentSurface({
           ) : <span />}
           <Button
             leftSection={<IconSend size={16} />}
-            loading={submitting}
+            loading={commentMutation.isPending}
             onClick={handleSubmit}
             disabled={!body.trim()}
           >
-            Send
+            {t("portal.share.send")}
           </Button>
         </Group>
       </Stack>
@@ -202,62 +149,35 @@ function CommentSurface({
   );
 }
 
-
-// ---------------------------------------------------------------------------
-// Attachment surface — POST /api/portal/attachment (multipart)
-// ---------------------------------------------------------------------------
-
-function AttachmentSurface({
-  token, onSubmitted,
-}: {
-  token: string;
-  onSubmitted: () => void;
-}) {
+function AttachmentSurface({ token }: { token: string }) {
+  const t = useT();
+  const attachmentMutation = usePortalAttachment(token);
   const [file, setFile] = useState<File | null>(null);
   const resetRef = useRef<() => void>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
 
   async function handleSubmit() {
     if (!file) return;
-    setSubmitting(true);
     setFeedback(null);
     try {
-      const fd = new FormData();
-      fd.append("token", token);
-      fd.append("file", file);
-      const r = await fetch("/api/portal/attachment", {
-        method: "POST",
-        body: fd,
-      });
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        const detail = typeof j.detail === "string" ? j.detail : "Could not upload attachment.";
-        throw new Error(detail);
-      }
+      await attachmentMutation.mutateAsync(file);
       setFile(null);
       resetRef.current?.();
-      setFeedback({ kind: "ok", msg: "Attachment uploaded." });
-      onSubmitted();
+      setFeedback({ kind: "ok", msg: t("portal.share.attachmentUploaded") });
     } catch (err) {
-      setFeedback({
-        kind: "err",
-        msg: err instanceof Error ? err.message : "Could not upload attachment.",
-      });
-    } finally {
-      setSubmitting(false);
+      setFeedback({ kind: "err", msg: extractApiError(err, t("portal.share.attachmentFailed")) });
     }
   }
 
   return (
     <Paper withBorder p="md">
       <Stack gap="sm">
-        <Title order={4}>Add an attachment</Title>
+        <Title order={4}>{t("portal.share.addAttachment")}</Title>
         <Group>
           <FileButton onChange={setFile} resetRef={resetRef}>
             {(props) => (
               <Button {...props} variant="default" leftSection={<IconPaperclip size={16} />}>
-                {file ? "Change file" : "Pick a file"}
+                {file ? t("portal.share.changeFile") : t("portal.share.pickFile")}
               </Button>
             )}
           </FileButton>
@@ -270,8 +190,12 @@ function AttachmentSurface({
               {" "}{feedback.msg}
             </Text>
           ) : <span />}
-          <Button onClick={handleSubmit} loading={submitting} disabled={!file}>
-            Upload
+          <Button
+            onClick={handleSubmit}
+            loading={attachmentMutation.isPending}
+            disabled={!file}
+          >
+            {t("portal.share.upload")}
           </Button>
         </Group>
       </Stack>

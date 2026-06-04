@@ -17,7 +17,7 @@
 - [x] BaseRepository with tenant filter
 - [x] Auto-CRUD (5 endpoints / model)
 - [x] JWT + bcrypt + TOTP 2FA
-- [x] RBAC: `ir_model_access` + `ir_rule` (cache loaded at startup)
+- [x] RBAC: `base_model_access` + `base_rule` (cache loaded at startup)
 - [x] AI Action Registry + RapidFuzz resolver
 - [x] `GET /api/base/ui-config`
 - [x] Lifespan startup + Alembic upgrade head
@@ -26,10 +26,10 @@
 
 - [x] 2.1 Repository hooks (before/after create/write/unlink) — PR 3
 - [x] 2.2 `created_by_id` / `modified_by_id` columns — PR 3
-- [x] 2.3 `ir_audit_log` (mandatory, opt-out) → ADR-0010 — PR 3
+- [x] 2.3 `base_audit_log` (mandatory, opt-out) → ADR-0010 — PR 3
 - [x] 2.4a EventBus (in-process) — PR 3
 - [x] 2.4b Postgres Outbox + dispatcher + webhooks table — PR 4
-- [ ] 2.5 Many2one resolution in API responses (`{field}__name`)
+- [x] 2.5 Many2one resolution in API responses (`{field}__name`) — list + GET one `?expand=`
 - [ ] 2.6 Move `_seed_crm_defaults` out of `api.py` to `modules/crm/bootstrap.py`
 - [x] 2.7 `migrate` service in compose + Alembic advisory lock — PR 2
 
@@ -49,18 +49,24 @@
 ## 4. Wave 3 — AI layer (engine baseline)
 
 - [x] 4.1 Provider ABC + Anthropic + OpenAI + Ollama implementations → ADR-0009 — PR 8
-- [x] 4.2 `ir_ai_credential` table + Fernet at-rest encryption → ADR-0004 — PR 8
+- [x] 4.2 `base_ai_credential` table + Fernet at-rest encryption → ADR-0004 — PR 8
 - [x] 4.3 BYOK CRUD endpoints (`POST/GET/DELETE /api/ai/credentials`) — PR 8
 - [x] 4.4 Provider ping on credential creation — PR 8
 - [x] 4.5 `AIModuleConfig` + `AIRegistry` (per-module `ai.py`) — PR 8
 - [ ] 4.6 `AIContextBuilder` (RBAC-scoped tools and data) — wired via `tools.build_tools` in PR 8; advanced scoping in PR 11
 - [x] 4.7 Tools: ActionTool, QueryTool, semantic_search → ADR-0005 — PR 8
-- [x] 4.8 `pgvector` extension + `ir_embedding` table + HNSW index — PR 8
-- [ ] 4.9 Outbox-driven embedding refresh on `record.{created,updated,deleted}` — next pass
+- [x] 4.8 `pgvector` extension + `base_embedding` table + HNSW index — PR 8
+- [x] 4.9 Outbox-driven embedding refresh on `record.{created,updated,deleted}` — embedding_dispatcher + Celery drain
 - [x] 4.10 `/api/ai/chat` endpoint (non-streaming MVP; streaming in PR 11) — PR 8
 - [x] 4.11 `/api/ai/dashboard` endpoint (scaffolded chart spec; AI exec in PR 11) — PR 8
 - [x] 4.12 Budget guard (`ai:budget:tenant:{id}:{yyyymm}` in Redis) — PR 8
 - [x] 4.13 PII redaction pipeline before remote provider calls — PR 8
+- [x] 4.14 `AgentLoop` multi-turn tool execution — PR 12
+- [x] 4.15 `base.agent` + `base.agent-run` + `POST /api/ai/runs` — PR 12
+- [x] 4.16 Agent delegation (`delegate_agent`, depth cap) — ADR-0019
+- [x] 4.17 Scheduled agent runs (Celery Beat poll) — ADR-0019
+- [x] 4.18 Streaming multi-turn `/api/ai/chat?stream=1` — ADR-0019
+- [x] 4.19 Agent run SSE status updates — ADR-0019
 
 ## 5. Wave 4 — Canonical CRM
 

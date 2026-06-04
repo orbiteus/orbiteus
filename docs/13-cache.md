@@ -6,7 +6,7 @@ One Redis 7 instance plays many roles. Each role has a key prefix.
 
 | Role | Key prefix | TTL |
 |---|---|---|
-| RBAC cache | `rbac:` | 60 s, invalidated on `ir_model_access` / `ir_rule` updates |
+| RBAC cache | `rbac:` | 60 s, invalidated on `base_model_access` / `base_rule` updates |
 | ui-config snapshot | local in-process (not Redis) | per-process, refreshed on registry changes |
 | JWT revocation list | `jti:revoked:` | until token natural expiry |
 | Idempotency keys | `idem:` | 24 h |
@@ -28,7 +28,7 @@ One Redis 7 instance plays many roles. Each role has a key prefix.
 - Loaded once at `registry.bootstrap()`.
 - Stored as `rbac:role:{role}:model:{model}` → JSON of CRUD flags.
 - 60 s TTL provides defense in depth even if invalidation fails.
-- On `ir_model_access` mutation, the EventBus emits `rbac.invalidated`
+- On `base_model_access` mutation, the EventBus emits `rbac.invalidated`
   which deletes the affected keys.
 
 ## Idempotency keys

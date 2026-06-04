@@ -3,7 +3,7 @@
 
 access:
   # -------------------------------------------------------------------
-  # System admin group – full access to all system/ir_* objects
+  # System admin group – full access to all system/engine system objects
   # -------------------------------------------------------------------
   - name: system_tenant
     role: base.group_system
@@ -21,14 +21,6 @@ access:
     create: true
     delete: true
 
-  - name: system_partner
-    role: base.group_system
-    model: base.partner
-    read: true
-    write: true
-    create: true
-    delete: true
-
   - name: system_user
     role: base.group_system
     model: base.user
@@ -37,65 +29,97 @@ access:
     create: true
     delete: true
 
-  - name: system_ir_model
+  - name: system_role
     role: base.group_system
-    model: base.ir-model
+    model: base.role
     read: true
     write: true
     create: true
     delete: true
 
-  - name: system_ir_model_field
+  - name: system_agent
     role: base.group_system
-    model: base.ir-model-field
+    model: base.agent
     read: true
     write: true
     create: true
     delete: true
 
-  - name: system_ir_model_access
+  - name: system_agent_run
     role: base.group_system
-    model: base.ir-model-access
+    model: base.agent-run
     read: true
     write: true
     create: true
     delete: true
 
-  - name: system_ir_rule
+  - name: system_model
     role: base.group_system
-    model: base.ir-rule
+    model: base.registry-model
     read: true
     write: true
     create: true
     delete: true
 
-  - name: system_ir_ui_menu
+  - name: system_model_field
     role: base.group_system
-    model: base.ir-ui-menu
+    model: base.registry-model-field
     read: true
     write: true
     create: true
     delete: true
 
-  - name: system_ir_sequence
+  - name: system_base_model_access
     role: base.group_system
-    model: base.ir-sequence
+    model: base.model-access
     read: true
     write: true
     create: true
     delete: true
 
-  - name: system_ir_config_param
+  - name: system_rule
     role: base.group_system
-    model: base.ir-config-param
+    model: base.record-rule
     read: true
     write: true
     create: true
     delete: true
 
-  - name: system_ir_cron
+  - name: system_ui_menu
     role: base.group_system
-    model: base.ir-cron
+    model: base.ui-menu
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ui_view
+    role: base.group_system
+    model: base.ui-view
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_config_param
+    role: base.group_system
+    model: base.config-param
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_ui_translation
+    role: base.group_system
+    model: base.ui-translation
+    read: true
+    write: true
+    create: true
+    delete: true
+
+  - name: system_attachment
+    role: base.group_system
+    model: base.attachment
     read: true
     write: true
     create: true
@@ -104,19 +128,19 @@ access:
   # -------------------------------------------------------------------
   # Regular user – read-only on basic shared objects
   # -------------------------------------------------------------------
-  - name: user_partner_readonly
+  - name: user_attachment
     role: base.group_user
-    model: base.partner
+    model: base.attachment
     read: true
     write: false
-    create: false
-    delete: false
+    create: true
+    delete: true
 
-  - name: user_company_readonly
+  - name: user_company
     role: base.group_user
     model: base.company
     read: true
-    write: false
+    write: true
     create: false
     delete: false
 

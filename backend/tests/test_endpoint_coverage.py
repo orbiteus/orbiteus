@@ -1,6 +1,6 @@
 """Endpoint-level coverage suite (DoD §15.1).
 
-Goal: drive enough HTTP paths through `modules/{base,auth,crm}/controller/router.py`
+Goal: drive enough HTTP paths through `modules/{base,auth}/controller/router.py`
 to satisfy the per-module coverage thresholds without rewriting the
 host-side integration suite. Every test runs in-process against the
 ASGI app via the existing `client` fixture, so the coverage collector
@@ -90,7 +90,7 @@ async def test_auth_share_requires_auth(client):
     r = await client.post(
         "/api/auth/share",
         json={
-            "resource_model": "crm.lead",
+            "resource_model": "base.company",
             "resource_id": str(uuid.uuid4()),
             "permissions": ["read"],
             "ttl_days": 1,
@@ -106,7 +106,7 @@ async def test_auth_share_issues_token(client):
         "/api/auth/share",
         headers=_h(token),
         json={
-            "resource_model": "crm.lead",
+            "resource_model": "base.company",
             "resource_id": str(uuid.uuid4()),
             "permissions": ["read"],
             "ttl_days": 1,
@@ -181,6 +181,9 @@ async def test_base_audit_log_returns_list(client):
     assert r.status_code == 200
     body = r.json()
     assert "items" in body
+    if body["items"]:
+        assert "initiator" in body["items"][0]
+        assert "label" in body["items"][0]["initiator"]
 
 
 @pytest.mark.asyncio
@@ -188,12 +191,12 @@ async def test_base_aggregate_count_works(client):
     token = await _admin_token(client)
     r = await client.get(
         "/api/base/aggregate",
-        params={"model": "crm.lead", "group_by": "stage_id", "op": "count"},
+        params={"model": "base.company", "group_by": "country_code", "op": "count"},
         headers=_h(token),
     )
     assert r.status_code == 200
     body = r.json()
-    assert body["model"] == "crm.lead"
+    assert body["model"] == "base.company"
     assert body["op"] == "count"
     assert isinstance(body["data"], list)
 
@@ -203,7 +206,7 @@ async def test_base_aggregate_unknown_op_400(client):
     token = await _admin_token(client)
     r = await client.get(
         "/api/base/aggregate",
-        params={"model": "crm.lead", "group_by": "stage_id", "op": "median"},
+        params={"model": "base.company", "group_by": "country_code", "op": "median"},
         headers=_h(token),
     )
     assert r.status_code == 400
@@ -225,7 +228,7 @@ async def test_base_aggregate_sum_requires_measure(client):
     token = await _admin_token(client)
     r = await client.get(
         "/api/base/aggregate",
-        params={"model": "crm.lead", "group_by": "stage_id", "op": "sum"},
+        params={"model": "base.company", "group_by": "country_code", "op": "sum"},
         headers=_h(token),
     )
     assert r.status_code == 400
@@ -234,7 +237,7 @@ async def test_base_aggregate_sum_requires_measure(client):
 @pytest.mark.asyncio
 async def test_base_view_requires_auth(client):
     client.cookies.clear()
-    r = await client.get("/api/base/view", params={"model": "crm.lead", "type": "list"})
+    r = await client.get("/api/base/view", params={"model": "base.company", "type": "list"})
     assert r.status_code == 401
 
 
@@ -259,7 +262,7 @@ async def test_base_menus_endpoint_reachable(client):
     token = await _admin_token(client)
     r = await client.get("/api/base/menus", headers=_h(token))
     # Either 200 with the menu list or 403 if the role lacks read on
-    # `base.ir-ui-menu` — both exercise the endpoint.
+    # `base.ui-menu` — both exercise the endpoint.
     assert r.status_code in (200, 403)
 
 
@@ -288,108 +291,30 @@ async def test_base_webhooks_list_empty_for_fresh_tenant(client):
 
 
 # ---------------------------------------------------------------------------
-# crm/controller/router.py
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_crm_leads_kanban_requires_auth(client):
-    client.cookies.clear()
-    r = await client.get("/api/crm/leads/kanban")
-    assert r.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_crm_leads_kanban_returns_columns(client):
-    token = await _admin_token(client)
-    r = await client.get("/api/crm/leads/kanban", headers=_h(token))
-    assert r.status_code == 200
-    body = r.json()
-    assert "columns" in body
-    assert "total_leads" in body
-
-
-@pytest.mark.asyncio
-async def test_crm_stats_returns_payload(client):
-    token = await _admin_token(client)
-    r = await client.get("/api/crm/stats", headers=_h(token))
-    assert r.status_code == 200
-    body = r.json()
-    assert "total_persons" in body
-    assert "total_leads" in body
-
-
-@pytest.mark.asyncio
-async def test_crm_lead_move_through_canonical_endpoint(client):
-    """Same service the AI dispatcher's handler uses (DoD §8.10)."""
-    token = await _admin_token(client)
-
-    # Person + lead.
-    p = await client.post(
-        "/api/crm/person",
-        headers=_h(token),
-        json={"name": "Cov person", "kind": "individual"},
-    )
-    assert p.status_code in (200, 201)
-    person_id = p.json()["id"]
-
-    L = await client.post(
-        "/api/crm/lead",
-        headers=_h(token),
-        json={"name": "Cov lead", "person_id": person_id, "expected_revenue": 100},
-    )
-    assert L.status_code in (200, 201)
-    lead_id = L.json()["id"]
-
-    # Stage.
-    stages = await client.get("/api/crm/stage?limit=1", headers=_h(token))
-    items = stages.json().get("items", [])
-    if items:
-        stage_id = items[0]["id"]
-    else:
-        s = await client.post(
-            "/api/crm/stage",
-            headers=_h(token),
-            json={"name": "Cov stage", "sequence": 1, "probability": 50.0},
-        )
-        assert s.status_code in (200, 201)
-        stage_id = s.json()["id"]
-
-    r = await client.post(
-        f"/api/crm/lead/{lead_id}/move",
-        headers=_h(token),
-        params={"stage_id": stage_id},
-    )
-    assert r.status_code == 200
-    assert r.json()["lead_id"] == lead_id
-
-
-# ---------------------------------------------------------------------------
 # orbiteus_core touchpoints reachable via HTTP
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_aggregate_endpoint_uses_apply_record_rules(client):
-    """Drives orbiteus_core/auto_router list path via the aggregate
-    endpoint with a known-good model. Improves auto_router coverage."""
     token = await _admin_token(client)
     r = await client.get(
-        "/api/crm/person?limit=1",
+        "/api/base/company?limit=1",
         headers=_h(token),
     )
     assert r.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_register_then_create_person_then_list(client):
+async def test_register_then_create_company_then_list(client):
     token = await _admin_token(client)
     nonce = uuid.uuid4().hex[:6]
     p = await client.post(
-        "/api/crm/person",
+        "/api/base/company",
         headers=_h(token),
-        json={"name": f"Listed {nonce}", "kind": "individual"},
+        json={"name": f"Listed {nonce}"},
     )
     assert p.status_code in (200, 201)
-    listing = await client.get("/api/crm/person?limit=200", headers=_h(token))
+    listing = await client.get("/api/base/company?limit=200", headers=_h(token))
     assert listing.status_code == 200
     names = [it.get("name") for it in listing.json().get("items", [])]
     assert any(f"Listed {nonce}" == n for n in names)
@@ -547,7 +472,7 @@ async def test_base_webhook_full_crud(client):
             "url": f"https://test.local/h/{nonce}",
             "secret": "shhh",  # pragma: allowlist secret
             "event_mask": ["record.updated"],
-            "model_filter": "crm.lead",
+            "model_filter": "base.company",
             "field_filter": [],
             "is_active": True,
             "active": True,
@@ -556,7 +481,7 @@ async def test_base_webhook_full_crud(client):
     assert create.status_code in (200, 201, 403)
     if create.status_code == 403:
         # Fresh-tenant role doesn't grant `write` on
-        # `base.ir-webhook` — the security path is exercised.
+        # `base.webhook` — the security path is exercised.
         return
     webhook_id = create.json()["id"]
 
@@ -599,12 +524,12 @@ async def test_auto_router_list_with_filter_and_sort(client):
     nonce = uuid.uuid4().hex[:6]
     for n in [f"AAA {nonce}", f"BBB {nonce}", f"CCC {nonce}"]:
         await client.post(
-            "/api/crm/person",
+            "/api/base/company",
             headers=_h(token),
-            json={"name": n, "kind": "individual"},
+            json={"name": n},
         )
     r = await client.get(
-        "/api/crm/person",
+        "/api/base/company",
         headers=_h(token),
         params={
             "limit": 10,
@@ -628,7 +553,7 @@ async def test_auto_router_list_with_filter_and_sort(client):
 async def test_auto_router_get_404_on_unknown_id(client):
     token = await _admin_token(client)
     r = await client.get(
-        f"/api/crm/person/{uuid.uuid4()}", headers=_h(token),
+        f"/api/base/company/{uuid.uuid4()}", headers=_h(token),
     )
     assert r.status_code == 404
 
@@ -637,7 +562,7 @@ async def test_auto_router_get_404_on_unknown_id(client):
 async def test_auto_router_create_422_on_validation(client):
     token = await _admin_token(client)
     r = await client.post(
-        "/api/crm/person",
+        "/api/base/company",
         headers=_h(token),
         json={"kind": "individual"},  # missing required `name`
     )
@@ -654,15 +579,15 @@ async def test_auto_router_update_endpoint_reachable(client):
     handler body executed."""
     token = await _admin_token(client)
     p = await client.post(
-        "/api/crm/person",
+        "/api/base/company",
         headers=_h(token),
-        json={"name": "before", "kind": "individual"},
+        json={"name": "before"},
     )
     pid = p.json()["id"]
     r = await client.put(
-        f"/api/crm/person/{pid}",
+        f"/api/base/company/{pid}",
         headers=_h(token),
-        json={"name": "after", "kind": "individual"},
+        json={"name": "after"},
     )
     assert r.status_code in (200, 422)
 
@@ -671,12 +596,12 @@ async def test_auto_router_update_endpoint_reachable(client):
 async def test_auto_router_delete_204(client):
     token = await _admin_token(client)
     p = await client.post(
-        "/api/crm/person",
+        "/api/base/company",
         headers=_h(token),
-        json={"name": "del-me", "kind": "individual"},
+        json={"name": "del-me"},
     )
     pid = p.json()["id"]
-    r = await client.delete(f"/api/crm/person/{pid}", headers=_h(token))
+    r = await client.delete(f"/api/base/company/{pid}", headers=_h(token))
     assert r.status_code == 204
 
 
@@ -689,33 +614,59 @@ async def test_auto_router_expand_resolves_fk_name(client):
     token = await _admin_token(client)
     nonce = uuid.uuid4().hex[:6]
 
-    # Create person + lead.
-    person = await client.post(
-        "/api/crm/person",
+    parent = await client.post(
+        "/api/base/company",
         headers=_h(token),
-        json={"name": f"FK target {nonce}", "kind": "individual"},
+        json={"name": f"FK parent {nonce}"},
     )
-    person_id = person.json()["id"]
-    lead = await client.post(
-        "/api/crm/lead",
+    assert parent.status_code in (200, 201)
+    parent_id = parent.json()["id"]
+    child = await client.post(
+        "/api/base/company",
         headers=_h(token),
-        json={
-            "name": f"FK lead {nonce}",
-            "person_id": person_id,
-            "expected_revenue": 999,
-        },
+        json={"name": f"FK child {nonce}", "parent_company_id": parent_id},
     )
-    lead_id = lead.json()["id"]
+    assert child.status_code in (200, 201)
+    child_id = child.json()["id"]
 
     listing = await client.get(
-        "/api/crm/lead",
+        "/api/base/company",
         headers=_h(token),
-        params={"limit": 200, "expand": "person_id"},
+        params={"limit": 200, "expand": "parent_company_id"},
     )
     assert listing.status_code == 200
     target = next(
-        (it for it in listing.json()["items"] if it["id"] == lead_id),
+        (it for it in listing.json()["items"] if it["id"] == child_id),
         None,
     )
     assert target is not None
-    assert target.get("person_id__name") == f"FK target {nonce}"
+    assert target.get("parent_company_id__name") == f"FK parent {nonce}"
+
+
+@pytest.mark.asyncio
+async def test_auto_router_get_one_expand_resolves_fk_name(client):
+    token = await _admin_token(client)
+    nonce = uuid.uuid4().hex[:6]
+
+    parent = await client.post(
+        "/api/base/company",
+        headers=_h(token),
+        json={"name": f"GET expand parent {nonce}"},
+    )
+    parent_id = parent.json()["id"]
+    child = await client.post(
+        "/api/base/company",
+        headers=_h(token),
+        json={"name": f"GET expand child {nonce}", "parent_company_id": parent_id},
+    )
+    child_id = child.json()["id"]
+
+    detail = await client.get(
+        f"/api/base/company/{child_id}",
+        headers=_h(token),
+        params={"expand": "parent_company_id"},
+    )
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["parent_company_id"] == parent_id
+    assert body.get("parent_company_id__name") == f"GET expand parent {nonce}"

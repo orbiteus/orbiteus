@@ -1,6 +1,6 @@
 [project]
 name = "orbiteus"
-version = "1.0.0"
+version = "1.1.0"
 license = { text = "MIT" }
 requires-python = ">=3.13"
 dependencies = [
@@ -21,6 +21,7 @@ dependencies = [
     "cryptography>=42.0.0",
     "anthropic>=0.34.0",
     "openai>=1.40.0",
+    "google-genai>=1.9.0",
     "pgvector>=0.3.0",
     "opentelemetry-api>=1.27.0",
     "opentelemetry-sdk>=1.27.0",
@@ -145,7 +146,6 @@ omit = [
     "modules/base/repositories.py",
     "modules/base/mapping.py",
     "modules/base/domain.py",
-    "modules/crm/router.py",
     "modules/crm/repositories.py",
     "modules/crm/mapping.py",
     "modules/crm/domain.py",
@@ -175,6 +175,7 @@ omit = [
     "orbiteus_core/ai/providers/anthropic.py",
     "orbiteus_core/ai/providers/openai.py",
     "orbiteus_core/ai/providers/ollama.py",
+    "orbiteus_core/ai/providers/gemini.py",
     "orbiteus_core/ai/keys.py",        # Fernet wrapper, exec'd at runtime
     "orbiteus_core/ai/budget.py",      # Redis counter wrapper, exec'd at runtime
     "orbiteus_core/ai/resolver.py",    # rapidfuzz lookup, exec'd at runtime
@@ -219,7 +220,6 @@ omit = [
     "modules/base/repositories.py",
     "modules/base/mapping.py",
     "modules/base/domain.py",
-    "modules/crm/router.py",
     "modules/crm/repositories.py",
     "modules/crm/mapping.py",
     "modules/crm/domain.py",
@@ -240,6 +240,7 @@ omit = [
     "orbiteus_core/ai/providers/anthropic.py",
     "orbiteus_core/ai/providers/openai.py",
     "orbiteus_core/ai/providers/ollama.py",
+    "orbiteus_core/ai/providers/gemini.py",
     "orbiteus_core/ai/keys.py",
     "orbiteus_core/ai/budget.py",
     "orbiteus_core/ai/resolver.py",

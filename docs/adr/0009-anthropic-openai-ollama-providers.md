@@ -23,7 +23,7 @@ require a new ADR.
 
 ## Consequences
 
-- Adopters pick a provider per tenant via `ir_ai_credential`.
+- Adopters pick a provider per tenant via `base_ai_credential`.
 - Engine never ships with a default provider key.
 - Provider differences (function-calling shape, streaming events) are absorbed
   in `providers/` adapters.

@@ -22,21 +22,13 @@ DEFAULT_ACCESS_RIGHTS = [
             "perm_unlink": True,
         }
         for model in [
-            "base.tenant", "base.company", "base.partner", "base.user",
-            "base.ir-model", "base.ir-model-field", "base.ir-model-access",
-            "base.ir-rule", "base.ir-ui-menu", "base.ir-sequence",
-            "base.ir-config-param", "base.ir-cron",
+            "base.tenant", "base.company", "base.user", "base.role",
+            "base.registry-model", "base.registry-model-field", "base.model-access",
+            "base.record-rule", "base.ui-menu", "base.ui-view",
+            "base.config-param",
+            "base.agent", "base.agent-run",
         ]
     ],
-    # Regular user – read-only on basic objects
-    {
-        "role_name": "base.group_user",
-        "model_name": "base.partner",
-        "perm_read": True,
-        "perm_write": False,
-        "perm_create": False,
-        "perm_unlink": False,
-    },
     {
         "role_name": "base.group_user",
         "model_name": "base.company",

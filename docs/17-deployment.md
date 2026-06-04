@@ -65,8 +65,9 @@ Required:
 
 Optional:
 
-- `MAX_FILE_SIZE_MB`
-- `ATTACHMENT_PATH`
+- `ATTACHMENT_STORAGE` (default `local`; S3-compatible backend post-v1)
+- `ATTACHMENT_STORAGE_PATH` (default `/var/orbiteus/attachments` in prod compose)
+- `ATTACHMENT_MAX_BYTES` (default `52428800` — 50 MiB)
 - `RATE_LIMIT_TENANT_PER_MINUTE`
 - `RATE_LIMIT_USER_PER_MINUTE`
 

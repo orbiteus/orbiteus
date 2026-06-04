@@ -1,4 +1,4 @@
-"""Drain `ir_outbox` and dispatch outbox rows to their handlers.
+"""Drain `base_outbox` and dispatch outbox rows to their handlers.
 
 Boring rules (ADR-0013, ADR-0010):
 - Tasks are synchronous Celery tasks; async I/O wrapped in `asyncio.run`.
@@ -39,7 +39,7 @@ def drain_outbox() -> dict:
 
 
 async def _drain_outbox_async() -> dict:
-    from modules.base.model.mapping import ir_outbox_table
+    from modules.base.model.mapping import base_outbox_table
     from orbiteus_core.db import AsyncSessionFactory
 
     now = datetime.now(timezone.utc)
@@ -50,22 +50,22 @@ async def _drain_outbox_async() -> dict:
     async with AsyncSessionFactory() as session:
         # Atomically claim a batch of pending rows due now.
         claim_stmt = (
-            update(ir_outbox_table)
+            update(base_outbox_table)
             .where(
                 and_(
-                    ir_outbox_table.c.status == "pending",
-                    ir_outbox_table.c.next_run_at <= now.isoformat(),
+                    base_outbox_table.c.status == "pending",
+                    base_outbox_table.c.next_run_at <= now.isoformat(),
                 )
             )
             .values(status="processing", write_date=now)
             .returning(
-                ir_outbox_table.c.id,
-                ir_outbox_table.c.event,
-                ir_outbox_table.c.tenant_id,
-                ir_outbox_table.c.payload,
-                ir_outbox_table.c.target_kind,
-                ir_outbox_table.c.target_ref,
-                ir_outbox_table.c.retries,
+                base_outbox_table.c.id,
+                base_outbox_table.c.event,
+                base_outbox_table.c.tenant_id,
+                base_outbox_table.c.payload,
+                base_outbox_table.c.target_kind,
+                base_outbox_table.c.target_ref,
+                base_outbox_table.c.retries,
             )
             .execution_options(synchronize_session=False)
         )
@@ -105,19 +105,19 @@ async def _drain_outbox_async() -> dict:
 
 
 async def _mark_done(session, row_id: uuid.UUID) -> None:
-    from modules.base.model.mapping import ir_outbox_table
+    from modules.base.model.mapping import base_outbox_table
     await session.execute(
-        update(ir_outbox_table)
-        .where(ir_outbox_table.c.id == row_id)
+        update(base_outbox_table)
+        .where(base_outbox_table.c.id == row_id)
         .values(status="done", write_date=datetime.now(timezone.utc))
     )
 
 
 async def _mark_dead(session, row_id: uuid.UUID, error: str) -> None:
-    from modules.base.model.mapping import ir_outbox_table
+    from modules.base.model.mapping import base_outbox_table
     await session.execute(
-        update(ir_outbox_table)
-        .where(ir_outbox_table.c.id == row_id)
+        update(base_outbox_table)
+        .where(base_outbox_table.c.id == row_id)
         .values(
             status="dead",
             last_error=error,
@@ -127,11 +127,11 @@ async def _mark_dead(session, row_id: uuid.UUID, error: str) -> None:
 
 
 async def _reschedule(session, row_id: uuid.UUID, next_retry: int, error: str) -> None:
-    from modules.base.model.mapping import ir_outbox_table
+    from modules.base.model.mapping import base_outbox_table
     next_run = datetime.now(timezone.utc) + timedelta(seconds=_backoff_seconds(next_retry))
     await session.execute(
-        update(ir_outbox_table)
-        .where(ir_outbox_table.c.id == row_id)
+        update(base_outbox_table)
+        .where(base_outbox_table.c.id == row_id)
         .values(
             status="pending",
             retries=next_retry,
@@ -150,7 +150,13 @@ async def _dispatch(event: str, payload: dict, target_kind: str | None, target_r
         await deliver_webhook_async(event=event, payload=payload, webhook_id=target_ref)
         return
 
-    # Fallback: log-only handler. Future PRs (mail, embeddings, AI) plug in here.
+    if target_kind == "embedding":
+        from tasks.embedding_tasks import refresh_embedding_async
+
+        await refresh_embedding_async(event=event, payload=payload)
+        return
+
+    # Fallback: log-only handler. Future PRs (mail, AI) plug in here.
     logger.info(
         "outbox.dispatched",
         extra={"event": event, "target_kind": target_kind, "target_ref": target_ref},
@@ -164,7 +170,7 @@ def release_stuck_processing() -> dict:
 
 
 async def _release_stuck_async() -> dict:
-    from modules.base.model.mapping import ir_outbox_table
+    from modules.base.model.mapping import base_outbox_table
     from orbiteus_core.db import AsyncSessionFactory
 
     cutoff = (
@@ -172,15 +178,15 @@ async def _release_stuck_async() -> dict:
     ).isoformat()
     async with AsyncSessionFactory() as session:
         result = await session.execute(
-            update(ir_outbox_table)
+            update(base_outbox_table)
             .where(
                 and_(
-                    ir_outbox_table.c.status == "processing",
-                    ir_outbox_table.c.write_date <= cutoff,
+                    base_outbox_table.c.status == "processing",
+                    base_outbox_table.c.write_date <= cutoff,
                 )
             )
             .values(status="pending", write_date=datetime.now(timezone.utc))
-            .returning(ir_outbox_table.c.id)
+            .returning(base_outbox_table.c.id)
         )
         ids = [r[0] for r in result.fetchall()]
         await session.commit()

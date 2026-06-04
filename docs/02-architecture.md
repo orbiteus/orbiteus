@@ -50,7 +50,7 @@ registry.register("crm")
   +-- _register_actions()  # AI Action Registry
   +-- _register_ai()       # AIModuleConfig registry
   +-- _register_routes()   # mount auto-CRUD + custom router
-  +-- _register_menus()    # ir_ui_menu entries
+  +-- _register_menus()    # base_ui_menus entries
   +-- on_install()         # one-time per tenant (seed)
 ```
 
@@ -86,12 +86,12 @@ and AI surfaces ship from `admin-ui/src/orbiteus-ui/` until the portal copies th
 - `tenant_id` on every business table.
 - `BaseRepository._tenant_filter()` is automatic; bypass requires superadmin
   context and is logged.
-- `SystemModel` (ir_* tables) — no `tenant_id`, global per instance.
+- `SystemModel` (base engine tables) — no `tenant_id`, global per instance.
 
 ## RBAC (5 levels)
 
-1. **Model access** (`ir_model_access`) — role × model × {read, write, create, unlink}.
-2. **Record rules** (`ir_rule`) — domain expressions filtering rows.
+1. **Model access** (`base_model_access`) — role × model × {read, write, create, unlink}.
+2. **Record rules** (`base_rule`) — domain expressions filtering rows.
 3. **Action RBAC** — every Action declares `requires_feature`; resolver filters.
 4. **Field-level** — read/write per field per role *(planned, see tree-spec)*.
 5. **Scope** — JWT claim `scope ∈ {internal, portal, ai}` is the upper bound.

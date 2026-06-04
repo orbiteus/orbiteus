@@ -87,7 +87,7 @@
 - [ ] `<AIChatPanel>` (sidebar / drawer)
 - [ ] `<AIDashboard>` for prompt-driven charts
 - [ ] `useAIContext(model, id)` hook
-- [ ] Graceful fallback when `ir_ai_credential` absent
+- [ ] Graceful fallback when `base_ai_credential` absent
 - [ ] BYOK admin page (`/admin/ai-credentials`)
 
 ## 9. Notifications and errors
@@ -114,10 +114,28 @@
 
 ## 12. Tests
 
-- [ ] Vitest + RTL setup
+- [x] Vitest setup
+- [x] queryKeys tests (TanStack Query)
 - [ ] viewParser tests
 - [ ] modelConfig tests
 - [ ] ResourceList component tests
 - [ ] ResourceForm component tests
 - [ ] CommandPalette tests
 - [ ] Playwright E2E: login → create → edit → delete
+
+## 13. Data layer (TanStack Query) — ADR-0020
+
+- [x] `@tanstack/react-query` in stack + `QueryProvider`
+- [x] `useUiConfig` / `useResourceList` / `useResourceDetail` hooks
+- [x] `placeholderData` on lists and edit forms
+- [x] Prefetch record on list row hover (`expand=` many2one fields)
+- [x] Realtime list invalidates query cache (not full remount)
+- [x] Kanban / calendar / graph views use `useResourceList`
+- [x] Create / update / delete mutations (`useCreateRecord`, etc.)
+- [x] `extractApiError` for form-safe error messages
+- [x] Technical pages use `useUiConfig` (audit log, webhooks)
+- [x] OpenAPI codegen script + `src/lib/openapi/README.md`
+- [x] Committed `openapi.json` + generated `schema.ts` + `client.ts` stub
+- [x] CI drift check (`scripts/check_openapi_codegen.sh` in e2e job)
+- [x] CRM typed fetch helpers (`openapi/resources.ts`)
+- [x] Portal-ui Query adoption (share view + mutations)

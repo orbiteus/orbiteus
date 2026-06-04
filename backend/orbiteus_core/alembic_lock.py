@@ -25,8 +25,8 @@ from alembic import op
 
 logger = logging.getLogger(__name__)
 
-# Stable lock id — picked once, never changed without coordination. Hex of "ORB17EU5".
-ORBITEUS_MIGRATION_LOCK_ID = int("ORB17EU5", 16)  # 11534116837 in decimal
+# Stable lock id — picked once, never changed without coordination.
+ORBITEUS_MIGRATION_LOCK_ID = 11534116837
 
 
 @contextmanager
@@ -34,9 +34,9 @@ def migration_lock():
     """Acquire pg_advisory_lock for the migration; release on exit."""
     bind = op.get_bind()
     logger.info("migration_lock: acquiring advisory lock %s", ORBITEUS_MIGRATION_LOCK_ID)
-    bind.exec_driver_sql("SELECT pg_advisory_lock(%s)", (ORBITEUS_MIGRATION_LOCK_ID,))
+    bind.exec_driver_sql(f"SELECT pg_advisory_lock({ORBITEUS_MIGRATION_LOCK_ID})")
     try:
         yield
     finally:
-        bind.exec_driver_sql("SELECT pg_advisory_unlock(%s)", (ORBITEUS_MIGRATION_LOCK_ID,))
+        bind.exec_driver_sql(f"SELECT pg_advisory_unlock({ORBITEUS_MIGRATION_LOCK_ID})")
         logger.info("migration_lock: released advisory lock %s", ORBITEUS_MIGRATION_LOCK_ID)

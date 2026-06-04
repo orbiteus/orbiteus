@@ -39,7 +39,7 @@ class ChatResult:
 # via the base-class default: it awaits `chat()` once and emits the
 # whole text as a single `text` event followed by `done`.
 
-ChatStreamEventKind = Literal["text", "tool_call", "done"]
+ChatStreamEventKind = Literal["text", "tool_call", "tool_result", "done"]
 
 
 @dataclass

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict, deque
+from datetime import datetime, timezone
 from threading import Lock
 from time import monotonic
 
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from orbiteus_core.context import RequestContext
 from orbiteus_core.config import settings
 from orbiteus_core.db import get_session
+from orbiteus_core.exceptions import NotFound
 from orbiteus_core.security.cookies import (
     clear_auth_cookies,
     set_access_cookie,
@@ -28,6 +30,7 @@ from orbiteus_core.security.tokens import (
     decode_password_reset_token,
     decode_refresh_token,
 )
+from orbiteus_core.user_agent import classify_login_device
 
 router = APIRouter(tags=["auth"])
 _RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
@@ -134,6 +137,16 @@ class PasswordResetConfirmPayload(BaseModel):
     new_password: str
 
 
+def _request_client_meta(request: Request) -> dict[str, str | None]:
+    user_agent = request.headers.get("user-agent")
+    client_host = request.client.host if request.client else None
+    return {
+        "ip": client_host,
+        "user_agent": user_agent[:500] if user_agent else None,
+        "device": classify_login_device(user_agent),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -151,8 +164,8 @@ async def login(
     from orbiteus_core.audit import write_audit
 
     request_id = getattr(request.state, "request_id", None)
-    client_host = request.client.host if request.client else None
-    ip_meta = {"ip": client_host} if client_host else {}
+    client_meta = _request_client_meta(request)
+    ip_meta = {k: v for k, v in client_meta.items() if v is not None}
 
     ctx = RequestContext(is_superadmin=True)
     repo = UserRepository(session, ctx)
@@ -235,6 +248,11 @@ async def login(
                 )
 
     # ── successful authentication ────────────────────────────────────────
+    await repo.update(user.id, {
+        "last_login": datetime.now(timezone.utc),
+        "last_login_device": client_meta["device"],
+    })
+
     await write_audit(
         session,
         actor="user",
@@ -423,7 +441,7 @@ async def register(
             "tenant_id": tenant.id,
             "company_id": company.id,
             "company_ids": [str(company.id)],
-            "role_ids": ["base.group_user", "crm.group_crm_manager"],
+            "role_ids": ["base.group_user"],
             "is_superadmin": False,
         })
     except IntegrityError:
@@ -431,6 +449,13 @@ async def register(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
         )
+
+    client_meta = _request_client_meta(request)
+    await user_repo.update(user.id, {
+        "last_login": datetime.now(timezone.utc),
+        "last_login_device": client_meta["device"],
+    })
+    await session.commit()
 
     return _issue_tokens(user, company.id, response)
 
@@ -440,13 +465,24 @@ async def me(
     session: AsyncSession = Depends(get_session),
     ctx: RequestContext = Depends(require_auth),
 ) -> dict:
-    """Return current user profile."""
+    """Return current user profile with live RBAC version for permission refresh."""
     from modules.base.controller.repositories import UserRepository
     from modules.base.model.schemas import UserRead
+    from orbiteus_core.security import rbac
 
     repo = UserRepository(session, RequestContext(is_superadmin=True))
-    user = await repo.get(ctx.user_id)
-    return UserRead.model_validate(user, from_attributes=True).model_dump()
+    try:
+        user = await repo.get(ctx.user_id)
+    except NotFound:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session invalid — please sign in again",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
+    body = UserRead.model_validate(user, from_attributes=True).model_dump()
+    body["rbac_version"] = rbac.get_rbac_version()
+    body["roles"] = user.role_ids or ctx.roles
+    return body
 
 
 @router.post("/totp/setup", response_model=TOTPSetupResponse)
@@ -584,6 +620,7 @@ async def password_reset_request(
         to=user.email,
         subject="Reset your Orbiteus password",
         body_text=body_text,
+        session=session,
     )
 
     from orbiteus_core.audit import write_audit
@@ -751,12 +788,15 @@ def _issue_tokens(user, company_id, response: Response | None = None) -> TokenRe
     also written as httpOnly cookies (`orbiteus_token`, `orbiteus_refresh`).
     The body keeps the JWTs for backward-compatible API clients.
     """
+    from orbiteus_core.security import rbac
+
     token_data = {
         "sub": str(user.id),
         "tenant_id": str(user.tenant_id) if user.tenant_id else None,
         "company_id": str(company_id) if company_id else None,
         "roles": user.role_ids or [],
         "is_superadmin": user.is_superadmin,
+        "rbac_ver": rbac.get_rbac_version(),
     }
     access = create_access_token(token_data)
     refresh = create_refresh_token(token_data)

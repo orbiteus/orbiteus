@@ -1,0 +1,10 @@
+{
+  "model": "base.record-rule",
+  "type": "list",
+  "columns": [
+    { "key": "name", "label": "Name" },
+    { "key": "model_name", "label": "Model" },
+    { "key": "is_global", "label": "Global" },
+    { "key": "roles", "label": "Roles" }
+  ]
+}

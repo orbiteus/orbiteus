@@ -6,7 +6,7 @@
   <!-- LOCKED: README hero tagline — do not edit without explicit product-owner approval (see AGENTS.md). -->
   **Orbiteus — A Full-Stack Development Framework for AI Agents. Build custom ERP, CRM & Business Tools in days not months. Start with 80% of the job done.**
 
-  ![status](https://img.shields.io/badge/version-v1.0.0-blue)
+  ![status](https://img.shields.io/badge/version-v1.1.0-blue)
   ![license](https://img.shields.io/badge/license-MIT-green)
   ![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)
   ![backend](https://img.shields.io/badge/backend-FastAPI%20%7C%20Python%203.13-3776AB)
@@ -20,9 +20,11 @@
 
 ## What is Orbiteus?
 
-Orbiteus is a software development framework: your AI agents use it to build your business application — CRM, ERP, HR, WMS, or anything in between. You start with roughly 80% of the work already done. You focus only on the business needs you describe to the agent.
+Orbiteus is an **AI agent engine** for **domain business applications** — operational CRM, club management, HR, integrations, and custom tools that fill gaps generic SaaS cannot. Your agents implement **your** processes on top of guardrails (auth, RBAC, audit, APIs, admin shell, jobs, realtime, AI tools).
 
-You can ship a genuinely solid app **in hours, or at most a few days**. When you are ready, you tell the agent to run it **on our infrastructure** or on **servers and environments you specify**.
+The bundled CRM module is a **framework demo**, not the product you must ship. See [`docs/40-reference-product-caltrain.md`](docs/40-reference-product-caltrain.md) for a reference domain app (fitness CRM replacing a rent-by-the-seat sales tool).
+
+You can ship a solid domain app **in days** when you follow [`docs/39-spec-driven-agent-workflow.md`](docs/39-spec-driven-agent-workflow.md): Ask → Spec → Implement → Verify.
 
 ## HOW TO USE IT?
 
@@ -125,7 +127,19 @@ docker compose up --build
 | OpenAPI | http://localhost:8000/api/docs |
 | Metrics | http://localhost:8000/metrics |
 
-Default login (development only): `admin@example.com` / `admin1234`.  
+Default login (development only): `admin@example.com` / `admin1234`.
+
+**Optional demo dataset** (curated companies, users, attachments):
+
+```bash
+# One-time cleanup after old bulk seed + load demo (add to .env or export):
+SEED_DEMO_DATA=1 RESET_DEMO_DATA=1 docker compose up --build
+
+# Or manually:
+docker compose exec backend python -m scripts.seed_demo --reset
+```
+
+Demo users (password `demo1234`): `demo.manager@example.com`, `demo.user@example.com`, `demo.sales@example.com`.  
 Rotate `BOOTSTRAP_ADMIN_PASSWORD` and `SECRET_KEY` before any production traffic — the production profile refuses default secrets.
 
 ---
@@ -222,7 +236,7 @@ Details: [`docs/20-testing.md`](docs/20-testing.md) and `.github/workflows/ci.ym
 | Pre-prompt (read first) | [`docs/pre-prompt.md`](docs/pre-prompt.md) |
 | Architecture | [`docs/02-architecture.md`](docs/02-architecture.md) |
 | Modules | [`docs/03-modules.md`](docs/03-modules.md) |
-| Data model + `ir_*` | [`docs/04-data-model.md`](docs/04-data-model.md) |
+| Data model + `base_*` | [`docs/04-data-model.md`](docs/04-data-model.md) |
 | RBAC + multi-tenancy | [`docs/05-rbac-multitenancy.md`](docs/05-rbac-multitenancy.md) |
 | Auth | [`docs/06-auth.md`](docs/06-auth.md) |
 | Auto-CRUD API + webhooks | [`docs/07-api.md`](docs/07-api.md) |
@@ -252,7 +266,7 @@ We welcome fixes, docs, and modules that follow the registry contract. Start wit
 
 ## Versioning + release
 
-Current line is **`v1.0.0`**. Release notes: [`CHANGELOG.md`](CHANGELOG.md). Honest code-vs-docs progress: [`docs/34-inventory-and-status.md`](docs/34-inventory-and-status.md).
+Current line is **`v1.1.0`**. Release notes: [`CHANGELOG.md`](CHANGELOG.md). Honest code-vs-docs progress: [`docs/34-inventory-and-status.md`](docs/34-inventory-and-status.md).
 
 ---
 

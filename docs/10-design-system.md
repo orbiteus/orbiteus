@@ -29,10 +29,35 @@ import { PromptInput, AIDashboard } from "@/orbiteus-ui";
 
 ## Tokens and theme
 
-- Mantine theme is defined in `admin-ui/src/app/layout.tsx` (and can be
-  extracted to a small `theme.ts` next to it when it grows).
-- Root layout wraps `<MantineProvider theme={theme}>`.
-- `primaryColor`, font stack, default radius, default gradient — live there.
+- Mantine theme lives in `admin-ui/src/lib/theme.ts` (imported by
+  `admin-ui/src/app/layout.tsx`). Portal UI uses the same palette in
+  `portal-ui/src/lib/theme.ts`.
+- Root layout wraps `<MantineProvider theme={orbiteusTheme}>`.
+- Default **UI accent** is **charcoal / zinc** (`primaryColor: "dark"` with a
+  custom 10-step scale from `#fafafa` to `#09090b`) — nav, buttons, active
+  rows, focus rings. **Not** Mantine default blue.
+- **Semantic / data colors** stay on the full Mantine palette (dashboard KPI
+  icons, status badges, audit actors, module tiles) so lists and dashboards
+  stay readable and lively without painting the chrome blue.
+- `primaryColor`, font stack, default radius — live in `theme.ts`.
+
+### Density (balanced compact)
+
+Orbiteus targets **structured but readable** admin UI — not oversized ERP
+chrome, not ultra-dense dev tools:
+
+| Token | Value | Notes |
+|---|---|---|
+| `fontSizes.md` | 16px | body / table cells |
+| `fontSizes.sm` | 14px | nav, labels, secondary |
+| `fontSizes.xs` | 12px | meta, badges, code in tables |
+| `spacing.md` | 16px | card padding, main shell gutter |
+| List row min-height | 42px | `RecordRowList.module.css` |
+| App shell header | 52px | sidebar 56px collapsed / 240px expanded |
+
+Default control size is **`sm`** (Mantine) with the 16px scale above.
+Do not hardcode `11px` fonts or `size="xs"` on primary actions — use theme
+tokens or `sm`/`md`.
 
 ## Branding
 
