@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from orbiteus_core.context import RequestContext
 from orbiteus_core.db import get_session
-from orbiteus_core.exceptions import AccessDenied, NotFound
+from orbiteus_core.exceptions import AccessDenied, NotFound, ValidationError as DomainValidationError
 from orbiteus_core.security.middleware import require_auth
 
 logger = logging.getLogger(__name__)
@@ -289,19 +289,35 @@ def build_crud_router(model_name: str) -> APIRouter | None:
         }
 
     # ---- GET ONE ----
-    @router.get("/{record_id}", response_model=read_schema, summary=f"Get {model_name}")
+    @router.get("/{record_id}", summary=f"Get {model_name}")
     async def get_record(
         record_id: uuid.UUID,
+        expand: str | None = Query(
+            None,
+            description="Comma-separated many2one fields to resolve. "
+                        "Each field gains a sibling `<field>__name` key.",
+        ),
         session: AsyncSession = Depends(get_session),
         ctx: RequestContext = Depends(require_auth),
     ):
         repo = repo_class(session, ctx)
         try:
-            return read_schema.model_validate(await repo.get(record_id), from_attributes=True)
+            record = await repo.get(record_id)
         except NotFound as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e)) from e
+
+        item = read_schema.model_validate(record, from_attributes=True).model_dump(mode="json")
+        if expand:
+            await _expand_many2one(
+                [item],
+                expand_fields=[f.strip() for f in expand.split(",") if f.strip()],
+                model_name=model_name,
+                session=session,
+                ctx=ctx,
+            )
+        return item
 
     # ---- CREATE ----
     # FastAPI can't infer body from a dynamic type variable, so we read raw JSON
@@ -324,6 +340,8 @@ def build_crud_router(model_name: str) -> APIRouter | None:
             return read_schema.model_validate(obj, from_attributes=True)
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e)) from e
+        except DomainValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     # ---- UPDATE ----
     @router.put("/{record_id}", response_model=read_schema, summary=f"Update {model_name}")
@@ -365,6 +383,8 @@ def build_crud_router(model_name: str) -> APIRouter | None:
             return read_schema.model_validate(obj, from_attributes=True)
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e)) from e
+        except DomainValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     # ---- DELETE ----
     @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT, summary=f"Delete {model_name}")
@@ -380,5 +400,7 @@ def build_crud_router(model_name: str) -> APIRouter | None:
             raise HTTPException(status_code=404, detail=str(e)) from e
         except AccessDenied as e:
             raise HTTPException(status_code=403, detail=str(e)) from e
+        except DomainValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     return router

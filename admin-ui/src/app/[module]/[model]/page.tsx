@@ -1,18 +1,22 @@
 "use client";
-import { Suspense, use, useEffect, useState } from "react";
+import { Suspense, use } from "react";
 import { Group, Stack, Title, Loader, Center, Paper, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { getCachedUiConfig, findModel, modelToColumns } from "@/lib/modelConfig";
+import { modelToColumns } from "@/lib/modelConfig";
 import type { ModelConfig } from "@/lib/api";
-import type { ColumnDef } from "@/lib/viewParser";
 import { parseCalendarView, parseGraphView } from "@/lib/viewParser";
+import { resolveKanbanGroupField } from "@/lib/viewJson";
 import ResourceList from "@/components/ResourceList";
 import ResourceKanban from "@/components/ResourceKanban";
 import ResourceCalendar from "@/components/ResourceCalendar";
 import ResourceGraph from "@/components/ResourceGraph";
 import ViewSwitcher, { useCurrentView, type ViewType } from "@/components/ViewSwitcher";
 import { api } from "@/lib/api";
-import { humanizeRegistrySlugForUi } from "@/lib/formatters";
+import UnknownModelNotice from "@/components/UnknownModelNotice";
+import { isKnownModel } from "@/lib/knownModels";
+import { useUiConfig, useUiConfigModel } from "@/lib/queries/uiConfig";
+import { useTranslatedColumns, useTranslatedModelTitle } from "@/lib/translatedModel";
+import { useT } from "@orbiteus/i18n";
 
 interface Params { module: string; model: string; }
 
@@ -26,40 +30,21 @@ function ViewHeader({
   switcher?: React.ReactNode;
 }) {
   return (
-    <Paper>
-      <Group justify="space-between" align="center">
-        <Stack gap={2}>
-          <Title order={3}>{title}</Title>
-          {subtitle && <Text size="sm" c="dimmed">{subtitle}</Text>}
-        </Stack>
-        {switcher}
-      </Group>
-    </Paper>
-  );
-}
-
-function parseKanbanGroupField(arch: string): string {
-  if (typeof window !== "undefined") {
-    try {
-      const doc = new DOMParser().parseFromString(arch, "text/xml");
-      const k = doc.querySelector("kanban");
-      return (
-        k?.getAttribute("default_group_by")
-        ?? k?.getAttribute("group_by")
-        ?? ""
-      );
-    } catch { /* fall through */ }
-  }
-  return (
-    arch.match(/default_group_by="([^"]+)"/)?.[1]
-    ?? arch.match(/group_by="([^"]+)"/)?.[1]
-    ?? ""
+    <Group justify="space-between" align="flex-end" wrap="wrap" pb="xs"
+      style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+      <Stack gap={2}>
+        <Title order={2} size="h3" fw={600}>{title}</Title>
+        {subtitle && <Text size="xs" c="dimmed">{subtitle}</Text>}
+      </Stack>
+      {switcher}
+    </Group>
   );
 }
 
 function PageContent({ mod, model, cfg }: { mod: string; model: string; cfg: ModelConfig }) {
   const resource = `${mod}/${model}`;
-  const title = humanizeRegistrySlugForUi(model);
+  const t = useT();
+  const title = useTranslatedModelTitle(cfg, model);
 
   const available: ViewType[] = ["list"];
   if (cfg.views.kanban) available.push("kanban");
@@ -67,13 +52,13 @@ function PageContent({ mod, model, cfg }: { mod: string; model: string; cfg: Mod
   if (cfg.views.graph && parseGraphView(cfg.views.graph)) available.push("graph");
 
   const view = useCurrentView("list");
-  const columns: ColumnDef[] = modelToColumns(cfg);
+  const columns = useTranslatedColumns(cfg);
 
   const cal = cfg.views.calendar ? parseCalendarView(cfg.views.calendar) : null;
   const gr = cfg.views.graph ? parseGraphView(cfg.views.graph) : null;
 
   if (view === "kanban" && cfg.views.kanban) {
-    const groupField = parseKanbanGroupField(cfg.views.kanban) || "stage_id";
+    const groupField = resolveKanbanGroupField(cfg.views.kanban) || "stage_id";
     const groupModel = groupField.replace(/_id$/, "");
     const groupsResource = `${mod}/${groupModel}`;
 
@@ -92,17 +77,10 @@ function PageContent({ mod, model, cfg }: { mod: string; model: string; cfg: Mod
           titleField="name"
           onMove={async (id, groupId) => {
             try {
-              if (resource === "crm/opportunity" && groupField === "stage_id") {
-                await api.post(`/${resource}/${id}/move`, {}, {
-                  params: { stage_id: groupId },
-                  skipGlobalErrorToast: true,
-                });
-              } else {
-                await api.put(`/${resource}/${id}`, { [groupField]: groupId }, { skipGlobalErrorToast: true });
-              }
-              notifications.show({ title: "Updated", message: "Card moved.", color: "green" });
+              await api.put(`/${resource}/${id}`, { [groupField]: groupId }, { skipGlobalErrorToast: true });
+              notifications.show({ title: t("form.saved"), message: t("form.saved"), color: "green" });
             } catch {
-              notifications.show({ title: "Move failed", message: "Could not update record.", color: "red" });
+              notifications.show({ title: t("common.error"), message: t("form.saveFailed"), color: "red" });
               throw new Error("move failed");
             }
           }}
@@ -144,21 +122,25 @@ function PageContent({ mod, model, cfg }: { mod: string; model: string; cfg: Mod
   }
 
   return (
-    <Stack gap="md">
+    <Stack gap="sm">
       {available.length > 1 && (
         <ViewHeader
           title={title}
-          subtitle="Browse, filter and manage records."
+          subtitle={t("list.clickRow")}
           switcher={<ViewSwitcher available={available} current="list" />}
         />
       )}
       <ResourceList
         title={title}
+        showTitle={available.length <= 1}
         resource={resource}
         columns={columns}
         fieldMeta={cfg.fields}
         createHref={`/${mod}/${model}/new`}
         editHref={(id) => `/${mod}/${model}/${id}`}
+        prefetchExpandFields={cfg.fields
+          .filter((f) => f.type === "many2one")
+          .map((f) => f.name)}
       />
     </Stack>
   );
@@ -170,25 +152,18 @@ function PageContent({ mod, model, cfg }: { mod: string; model: string; cfg: Mod
 // runtime warning and breaks subsequent re-renders.
 export default function DynamicListPage({ params }: { params: Promise<Params> }) {
   const { module: mod, model } = use(params);
-  const [cfg, setCfg] = useState<ModelConfig | null | undefined>(undefined);
+  const uiConfig = useUiConfig();
+  const { model: cfg, isLoading, isFetched } = useUiConfigModel(mod, model);
 
-  useEffect(() => {
-    let cancelled = false;
-    getCachedUiConfig()
-      .then((config) => {
-        if (!cancelled) setCfg(findModel(config, mod, model));
-      })
-      .catch(() => {
-        if (!cancelled) setCfg(null);
-      });
-    return () => { cancelled = true; };
-  }, [mod, model]);
+  if (isFetched && !isKnownModel(uiConfig.data, mod, model)) {
+    return <UnknownModelNotice module={mod} model={model} />;
+  }
 
-  if (cfg === undefined) {
+  if (!isFetched && isLoading) {
     return <Center h={200}><Loader color="gray" size="sm" /></Center>;
   }
 
-  if (cfg === null) {
+  if (!cfg) {
     // Fall back to a generic list view that auto-discovers columns from the
     // backend response — keeps every model reachable even when ui-config is
     // empty for it.
@@ -207,15 +182,23 @@ export default function DynamicListPage({ params }: { params: Promise<Params> })
 }
 
 function FallbackList({ mod, model }: { mod: string; model: string }) {
+  const t = useT();
   const resource = `${mod}/${model}`;
-  const title = humanizeRegistrySlugForUi(model);
+  const title = useTranslatedModelTitle(null, model);
   return (
-    <Stack gap="md">
-      <ViewHeader title={title} subtitle="Generic list view (no ui-config metadata)" />
+    <Stack gap="sm">
+      <ViewHeader title={title} subtitle={t("list.fallbackSubtitle")} />
       <ResourceList
         title={title}
+        showTitle={false}
         resource={resource}
-        columns={[{ key: "id", label: "ID" }, { key: "name", label: "Name" }]}
+        columns={[
+          { key: "id", label: t("field.id") },
+          { key: "model_name", label: "Model" },
+          { key: "key", label: "Key" },
+          { key: "name", label: t("field.name") },
+          { key: "label", label: "Label" },
+        ]}
         fieldMeta={[]}
         createHref={`/${mod}/${model}/new`}
         editHref={(id) => `/${mod}/${model}/${id}`}

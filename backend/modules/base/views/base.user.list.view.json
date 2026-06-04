@@ -1,0 +1,11 @@
+{
+  "model": "base.user",
+  "type": "list",
+  "columns": [
+    { "key": "name", "label": "Name" },
+    { "key": "email", "label": "Email" },
+    { "key": "last_login", "label": "Last login", "widget": "last_login" },
+    { "key": "is_active", "label": "Active" },
+    { "key": "role_ids", "label": "Roles" }
+  ]
+}

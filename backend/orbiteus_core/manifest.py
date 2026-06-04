@@ -29,8 +29,12 @@ class ModuleManifest(BaseModel):
     # data: security YAMLs, JSON views, seed YAMLs — processed in order
     data: list[str] = []
     demo: list[str] = []
-    # i18n: list of language codes with .po files in module/i18n/
+    # i18n: language codes → load ``i18n/<code>.json`` from the module directory
     i18n: list[str] = []
+    # i18n_files: explicit paths, e.g. ``i18n/pl.json``
+    i18n_files: list[str] = []
+    # i18n_locales: register extra languages [{code, label, dayjs?}]
+    i18n_locales: list[dict[str, str]] = []
 
     @field_validator("name")
     @classmethod

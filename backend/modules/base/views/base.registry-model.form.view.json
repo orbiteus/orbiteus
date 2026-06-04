@@ -1,0 +1,10 @@
+{
+  "model": "base.registry-model",
+  "type": "form",
+  "sections": [
+    {
+      "title": "Model",
+      "fields": ["model_name", "label", "module", "description"]
+    }
+  ]
+}

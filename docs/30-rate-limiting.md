@@ -4,16 +4,22 @@ Token bucket per tenant, user, and IP — implemented with Redis counters.
 
 ## Buckets
 
-| Bucket | Default | Storage key |
+| Bucket | Default | Applies to |
 |---|---|---|
-| Tenant | 1000 / minute | `rl:tenant:{tenant_id}:{minute}` |
-| User | 60 / minute | `rl:user:{user_id}:{minute}` |
-| IP | 120 / minute | `rl:ip:{ip}:{minute}` |
+| Tenant | 5000 / minute | Authenticated mutations + expensive GETs |
+| User (mutations) | 600 / minute | POST/PUT/PATCH/DELETE with valid session |
+| User (expensive GET) | 120 / minute | Authenticated `/api/ai/*` reads |
+| IP | 300 / minute | Anonymous traffic + auth mutations |
 | Anonymous endpoints | 30 / minute | `rl:anon:{route}:{ip}:{minute}` |
 | Auth login | 5 / minute / email + 20 / minute / IP | `rl:auth:login:{email}:{minute}` |
 
+**Authenticated SPA reads are not rate-limited.** `GET`/`HEAD` on normal
+API routes (list views, record fetch, `/api/auth/me`) bypass all buckets so
+rapid navigation in admin-ui never surfaces HTTP 429. Exempt paths include
+`/api/base/ui-config` and `/api/realtime/subscribe` (SSE handshake).
+
 Limits are configurable per environment via env vars
-(`RATE_LIMIT_TENANT_PER_MINUTE`, `RATE_LIMIT_USER_PER_MINUTE`, etc.).
+(`RATE_LIMIT_TENANT_PER_MINUTE`, `RATE_LIMIT_USER_MUTATIONS_PER_MINUTE`, etc.).
 
 ## Algorithm
 
@@ -61,6 +67,6 @@ Successful login resets the counter.
 ## What rate limiting does NOT do
 
 - It is not the audit log. Excessive 429s should appear in metrics, not in
-  `ir_audit_log`.
+  `base_audit_log`.
 - It is not abuse detection. Use a separate component for IP reputation,
   fingerprinting, or behavioral analysis.

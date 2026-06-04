@@ -30,6 +30,8 @@ app = Celery(
     include=[
         "tasks.outbox_tasks",
         "tasks.webhook_tasks",
+        "tasks.embedding_tasks",
+        "tasks.ai_tasks",
     ],
 )
 
@@ -57,5 +59,9 @@ app.conf.beat_schedule = {
     "release-stuck-processing-every-minute": {
         "task": "tasks.outbox_tasks.release_stuck_processing",
         "schedule": crontab(minute="*"),
+    },
+    "poll-scheduled-agents-every-5-min": {
+        "task": "tasks.ai_tasks.poll_scheduled_agents",
+        "schedule": 300.0,
     },
 }

@@ -109,6 +109,9 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[dev]"
+      - name: Apply database migrations
+        working-directory: backend
+        run: alembic upgrade head
       - name: Run pytest with coverage
         run: |
           pytest -q --ignore=admin-ui --ignore=portal-ui \
@@ -177,10 +180,19 @@ jobs:
         run: docker compose up -d --wait
       - name: Wait for backend health
         run: |
-          for _ in $(seq 1 30); do
-            curl -fsS http://localhost:8000/health && break
+          ok=0
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/api/health/live >/dev/null; then
+              ok=1
+              break
+            fi
             sleep 2
           done
+          test "$ok" -eq 1
+      - name: OpenAPI types drift check
+        run: |
+          chmod +x scripts/check_openapi_codegen.sh
+          OPENAPI_URL=http://127.0.0.1:8000/api/openapi.json ./scripts/check_openapi_codegen.sh --live
       - name: Run Playwright (deterministic subset)
         env:
           E2E_BASE_URL: http://localhost:3000

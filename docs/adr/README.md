@@ -29,3 +29,10 @@ Use the structure in [`_template.md`](./_template.md) for new ADRs.
 | 0015 | [No Temporal in MVP](./0015-no-temporal-in-mvp.md) | Accepted |
 | 0016 | [npm workspaces with packages/ui](./0016-npm-workspaces-with-packages-ui.md) | Superseded |
 | 0017 | [httpOnly cookie session for the Admin UI (no FOAC)](./0017-httponly-cookie-session.md) | Accepted |
+| 0018 | [AI agent primitive (`base.agent` + `base.agent-run`)](./0018-ai-agent-primitive.md) | Accepted |
+| 0019 | [Agent delegation and scheduled runs](./0019-agent-delegation-and-scheduling.md) | Accepted |
+| 0020 | [TanStack Query for admin-ui data layer](./0020-tanstack-query-admin-ui.md) | Accepted |
+| 0021 | [Domain-first positioning and hybrid UI](./0021-domain-apps-and-repositioning.md) | Accepted |
+| 0022 | [Modern views (JSON) and RBAC v2](./0022-modern-views-and-rbac-v2.md) | Accepted |
+| 0023 | [Gemini as fourth BYOK chat provider](./0023-gemini-provider.md) | Accepted |
+| 0024 | [UI i18n as module catalogs (English canonical)](./0024-ui-i18n-module-catalogs.md) | Accepted |

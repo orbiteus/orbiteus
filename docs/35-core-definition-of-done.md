@@ -32,7 +32,7 @@ true. No exceptions, no "we'll add it later".
 
 ## 4. Audit is mandatory and complete
 
-- [ ] `ir_audit_log` populated on every CRUD via `BaseRepository`.
+- [ ] `base_audit_log` populated on every CRUD via `BaseRepository`.
 - [ ] AI tool calls audited with `actor=ai`, `tool_name`, `args` (sanitized).
 - [ ] Auth events (login success/fail) audited.
 - [ ] Workflow transitions audited.
@@ -43,10 +43,10 @@ true. No exceptions, no "we'll add it later".
 
 - [ ] EventBus dispatches synchronous in-request hooks for audit, cache
       invalidation, and embeddings refresh signal.
-- [ ] `ir_outbox` is committed atomically with business writes.
+- [ ] `base_outbox` is committed atomically with business writes.
 - [ ] Celery worker drains the outbox idempotently with bounded retry +
       dead-letter status.
-- [ ] Celery Beat reads `ir_cron` and schedules tasks.
+- [ ] Celery Beat reads `base_cron` and schedules tasks.
 - [ ] Test: webhook delivered after a `record.updated` event.
 - [ ] Test: a failing webhook reaches `dead_letter` after 10 retries.
 
@@ -66,13 +66,13 @@ true. No exceptions, no "we'll add it later".
 
 ## 8. AI layer is plug-and-play (BYOK)
 
-- [ ] `ir_ai_credential` table with Fernet at-rest encryption.
+- [ ] `base_ai_credential` table with Fernet at-rest encryption.
 - [ ] `POST /api/ai/credentials` validates by ping; `GET` lists without secrets.
 - [ ] Provider adapters: Anthropic (default), OpenAI, Ollama. ABC stable.
 - [ ] `AIModuleConfig` registry populated from each module's `ai.py`.
 - [ ] AI tools: Action, QueryTool per model, `semantic_search`.
 - [ ] AI runs only with the user's RBAC; never elevated.
-- [ ] `pgvector` `ir_embedding` table + HNSW index; refresh via Outbox.
+- [ ] `pgvector` `base_embedding` table + HNSW index; refresh via Outbox.
 - [ ] `/api/ai/chat` (streaming, tool calling), `/api/ai/dashboard` (NL → chart).
 - [ ] Budget guard returns `429 AI Budget Exceeded` with reset hint.
 - [ ] PII redaction pipeline before remote provider calls.
@@ -98,7 +98,7 @@ true. No exceptions, no "we'll add it later".
 - [ ] `<AIChatPanel>` available globally (drawer) and per-record (inline).
 - [ ] `<AIDashboard>` renders chart specs returned by `/api/ai/dashboard`.
 - [ ] Components live under `admin-ui/src/orbiteus-ui/` when both apps need the same UX; portal copies when adopted.
-- [ ] Graceful fallback when no `ir_ai_credential` is configured.
+- [ ] Graceful fallback when no `base_ai_credential` is configured.
 
 ## 11. Canonical CRM (Person / Lead / Stage / Team)
 

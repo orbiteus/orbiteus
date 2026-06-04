@@ -36,6 +36,7 @@ import {
   IconShieldLock,
   IconUsers,
 } from "@tabler/icons-react";
+import { useT } from "@orbiteus/i18n";
 import { api } from "@/lib/api";
 import { useBranding } from "@/lib/branding";
 import { loginNeedsTotpStep } from "@/lib/loginTotp";
@@ -54,54 +55,54 @@ type UiModule = { name: string; label: string; models: { name: string }[] };
 
 type AuthStep = "welcome" | "signin";
 
-const roleCards: {
-  title: string;
-  blurb: string;
-  features: string[];
-  icon: typeof IconShieldLock;
-  cta: string;
-}[] = [
-  {
-    title: "Super administrator",
-    blurb: "Bootstrap account with full technical access — RBAC, system parameters, and CRM configuration.",
-    features: [
-      "Manage users, roles, and access rules",
-      "Technical models, cron jobs, sequences",
-      "CRM pipelines, stages, and master data",
-      "Branding and instance-wide settings",
-    ],
-    icon: IconShieldLock,
-    cta: "Sign in as super admin",
-  },
-  {
-    title: "Operations & CRM",
-    blurb: "Day-to-day revenue work: accounts, opportunities, and pipeline views inside the same demo tenant.",
-    features: [
-      "Customers, opportunities, and pipelines",
-      "List, form, kanban, and calendar perspectives",
-      "Fuzzy search and Command Palette (⌘K)",
-      "Same JWT session as the admin shell",
-    ],
-    icon: IconUsers,
-    cta: "Sign in to CRM workspace",
-  },
-  {
-    title: "Integrations & API",
-    blurb: "Treat Orbiteus as a headless engine — OpenAPI-first, module registry, no vendor UI lock-in.",
-    features: [
-      "Auto-generated REST + OpenAPI per model",
-      "Extend with registry.register(\"your_module\")",
-      "PostgreSQL + Alembic migrations at startup",
-      "MIT stack: FastAPI, SQLAlchemy, Next.js",
-    ],
-    icon: IconApi,
-    cta: "Sign in for API work",
-  },
-];
-
 const fluidPx = { base: "md", sm: "xl", lg: "3rem", xl: "4rem" } as const;
 
 export default function LoginPage() {
+  const t = useT();
+  const roleCards: {
+    title: string;
+    blurb: string;
+    features: string[];
+    icon: typeof IconShieldLock;
+    cta: string;
+  }[] = [
+    {
+      title: t("login.card.superadmin.title"),
+      blurb: t("login.card.superadmin.blurb"),
+      features: [
+        t("login.card.superadmin.feature1"),
+        t("login.card.superadmin.feature2"),
+        t("login.card.superadmin.feature3"),
+        t("login.card.superadmin.feature4"),
+      ],
+      icon: IconShieldLock,
+      cta: t("login.card.superadmin.cta"),
+    },
+    {
+      title: t("login.card.ops.title"),
+      blurb: t("login.card.ops.blurb"),
+      features: [
+        t("login.card.ops.feature1"),
+        t("login.card.ops.feature2"),
+        t("login.card.ops.feature3"),
+        t("login.card.ops.feature4"),
+      ],
+      icon: IconUsers,
+      cta: t("login.card.ops.cta"),
+    },
+    {
+      title: t("login.card.integration.title"),
+      blurb: t("login.card.integration.blurb"),
+      features: [
+        t("login.card.integration.feature1"),
+        t("login.card.integration.feature2"),
+        t("login.card.integration.feature3"),
+        t("login.card.integration.feature4"),
+      ],
+      icon: IconApi,
+      cta: t("login.card.integration.cta"),
+    },
+  ];
   const branding = useBranding();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -122,7 +123,7 @@ export default function LoginPage() {
   const [health, setHealth] = useState<HealthJson | null>(null);
   const [healthErr, setHealthErr] = useState(false);
   const [modules, setModules] = useState<UiModule[]>([]);
-  const [metaLoading, setMetaLoading] = useState(true);
+  const [metaLoading, setMetaLoading] = useState(false);
 
   // SSR renders the relative "/api" string; the client swaps in the absolute
   // URL after hydration to avoid a Next.js text mismatch warning.
@@ -174,6 +175,7 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
+    if (authStep !== "welcome") return;
     let cancelled = false;
     (async () => {
       setMetaLoading(true);
@@ -206,7 +208,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authStep]);
 
   useEffect(() => {
     if (!fullWelcome) applyPublicDemoPrefill();
@@ -224,7 +226,7 @@ export default function LoginPage() {
       if (totpRequired) {
         body.totp_code = totpCode.trim();
       }
-      const { data } = await api.post("/auth/login", body);
+      const { data } = await api.post("/auth/login", body, { skipGlobalErrorToast: true });
       if (loginNeedsTotpStep(data)) {
         setTotpRequired(true);
         setTotpCode("");
@@ -235,11 +237,15 @@ export default function LoginPage() {
       const next = params.get("next") || "/";
       window.location.assign(next);
     } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.code === "ECONNABORTED") {
-        setError("Request timed out. Check that the API is running and reachable.");
+      if (axios.isAxiosError(err) && !err.response) {
+        setError(
+          err.code === "ECONNABORTED"
+            ? t("auth.login.timeout")
+            : t("auth.login.unreachable"),
+        );
       } else {
         const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        setError(typeof msg === "string" ? msg : "Login failed");
+        setError(typeof msg === "string" ? msg : t("auth.login.failed"));
       }
     } finally {
       setLoading(false);
@@ -253,37 +259,36 @@ export default function LoginPage() {
   const demoCredentialsPanel = (
     <Paper withBorder p="xl" h="100%">
       <Stack gap="md">
-        <Title order={4}>Demo credentials</Title>
+        <Title order={4}>{t("auth.login.demoCredentials")}</Title>
         {hasBakedDemoCreds ? (
           <Stack gap="md">
             <Box>
               <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb={4}>
-                Email
+                {t("auth.email")}
               </Text>
               <Code block>{DEMO_EMAIL_PUBLIC}</Code>
             </Box>
             <Box>
               <Text size="xs" tt="uppercase" fw={700} c="dimmed" mb={4}>
-                Password
+                {t("auth.password")}
               </Text>
               <Code block>{DEMO_PASSWORD_PUBLIC}</Code>
             </Box>
             <Text size="xs" c="dimmed">
-              Shown because this image was built with{" "}
+              {t("auth.login.demoShownBecause")}{" "}
               <Text span ff="monospace" size="xs">
                 NEXT_PUBLIC_DEMO_LOGIN_*
               </Text>
-              . Rotate after evaluation.
+              . {t("auth.login.demoRotate")}
             </Text>
           </Stack>
         ) : (
           <Stack gap="sm">
             <Text size="sm" c="dimmed">
-              This build does not ship operator-specific secrets. Use the defaults from the README for a local Docker
-              stack, or values from your deployment.
+              {t("auth.login.demoNoSecrets")}
             </Text>
             <Text size="sm" fw={600}>
-              README — local Docker
+              {t("auth.login.readmeLocalDocker")}
             </Text>
             <Code block>
               {README_LOCAL_EMAIL}
@@ -291,15 +296,15 @@ export default function LoginPage() {
               {README_LOCAL_PASSWORD}
             </Code>
             <Text size="xs" c="dimmed">
-              For a public demo host, rebuild the frontend with{" "}
+              {t("auth.login.demoRebuildPrefix")}{" "}
               <Text span ff="monospace" size="xs">
                 NEXT_PUBLIC_DEMO_LOGIN_EMAIL
               </Text>{" "}
-              and{" "}
+              {t("auth.login.and")}{" "}
               <Text span ff="monospace" size="xs">
                 NEXT_PUBLIC_DEMO_LOGIN_PASSWORD
               </Text>{" "}
-              matching <Text span ff="monospace">BOOTSTRAP_ADMIN_*</Text>.
+              {t("auth.login.demoRebuildSuffix")} <Text span ff="monospace">BOOTSTRAP_ADMIN_*</Text>.
             </Text>
           </Stack>
         )}
@@ -321,11 +326,11 @@ export default function LoginPage() {
             )}
           </Group>
           <Text size="sm" c="dimmed">
-            Sign in with your account
+            {t("auth.login.signInWithAccount")}
           </Text>
         </Box>
         {error ? (
-          <Alert icon={<IconAlertCircle size={18} />} color="dark" variant="light" title="Sign-in error">
+          <Alert icon={<IconAlertCircle size={18} />} color="dark" variant="light" title={t("auth.login.signInError")}>
             {error}
           </Alert>
         ) : null}
@@ -333,7 +338,7 @@ export default function LoginPage() {
           <Stack gap="sm">
             <TextInput
               id="sign-in-email"
-              label="Email"
+              label={t("auth.email")}
               type="email"
               value={email}
               onChange={(e) => {
@@ -345,7 +350,7 @@ export default function LoginPage() {
               autoFocus
             />
             <PasswordInput
-              label="Password"
+              label={t("auth.password")}
               value={password}
               onChange={(e) => {
                 setTotpRequired(false);
@@ -357,8 +362,8 @@ export default function LoginPage() {
             {totpRequired ? (
               <TextInput
                 id="sign-in-totp"
-                label="Authenticator or recovery code"
-                description="6-digit code from your app, or a one-time recovery code."
+                label={t("auth.login.authenticatorOrRecovery")}
+                description={t("auth.login.authenticatorHint")}
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value)}
                 required
@@ -368,11 +373,11 @@ export default function LoginPage() {
             ) : null}
             <Group justify="flex-end">
               <Anchor size="sm" c="dark" href="/forgot-password">
-                Forgot password?
+                {t("auth.login.forgotPassword")}
               </Anchor>
             </Group>
             <Button type="submit" loading={loading} fullWidth mt="xs" size="md" color="dark">
-              Sign in
+              {t("auth.signIn")}
             </Button>
           </Stack>
         </form>
@@ -392,11 +397,11 @@ export default function LoginPage() {
               onClick={goToWelcome}
               w="fit-content"
             >
-              Back to welcome
+              {t("auth.login.backToWelcome")}
             </Button>
           ) : null}
           <Title order={1} fz={{ base: 28, sm: 34 }}>
-            Sign in
+            {t("auth.signIn")}
           </Title>
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl" w="100%">
             {demoCredentialsPanel}
@@ -414,7 +419,7 @@ export default function LoginPage() {
         <Container fluid px={fluidPx} pb="xl">
           <Text ta="center" size="sm">
             <Anchor href="/welcome" c="dark" fw={600}>
-              Show full welcome page
+              {t("auth.login.showFullWelcome")}
             </Anchor>
           </Text>
         </Container>
@@ -461,39 +466,36 @@ export default function LoginPage() {
                 )}
               </Group>
               <Text size="sm" c="dimmed" ta="left" maw={{ base: "100%", md: "42rem", lg: "50rem" }} lh={1.55}>
-                Development Engine to build with AI custom ERP/CRM &amp; Apps. Start with 80% job done.
+                {t("login.heroTagline")}
               </Text>
             </Flex>
           </Box>
 
           <Stack gap="md" align="flex-start" w="100%">
             <Title order={1} ta="left" fz={{ base: 26, sm: 34 }} fw={700} w="100%">
-              Welcome to your Orbiteus installation
+              {t("login.welcomeTitle")}
             </Title>
             <Text c="dimmed" ta="left" lh={1.65} w="100%" maw={{ base: "100%", md: "48rem", lg: "56rem" }} size="md">
-              This page is the public entry to your demo instance: the same Next.js + FastAPI codebase as in the
-              repository, with live PostgreSQL, auto-generated CRUD, registry-driven modules, Command Palette (⌘K), and
-              OpenAPI per model — a modular onboarding layout tailored for Orbiteus.
+              {t("login.welcomeIntro")}
             </Text>
           </Stack>
 
-          <Alert color="dark" variant="outline" title="Demo & security">
+          <Alert color="dark" variant="outline" title={t("login.demoSecurityTitle")}>
             <List spacing="xs" size="sm" mt="xs" withPadding>
               <List.Item>
-                The next step shows the sign-in form and, when configured at build time, the public demo email/password
-                pair for this host. Otherwise you see README defaults for local development only.
+                {t("login.demoSecurityItem1")}
               </List.Item>
               <List.Item>
-                After first login, rotate passwords and tighten{" "}
+                {t("login.demoSecurityItem2Prefix")}{" "}
                 <Text span fw={600}>
                   SECRET_KEY
                 </Text>{" "}
-                / bootstrap settings before any production traffic.
+                {t("login.demoSecurityItem2Suffix")}
               </List.Item>
               <List.Item>
-                Reference stack and defaults are documented in the{" "}
+                {t("login.demoSecurityItem3Prefix")}{" "}
                 <Anchor href="https://github.com/orbiteus/orbiteus" target="_blank" rel="noreferrer" fw={600}>
-                  GitHub README
+                  {t("login.githubReadme")}
                 </Anchor>
                 .
               </List.Item>
@@ -502,11 +504,10 @@ export default function LoginPage() {
 
           <Box w="100%">
             <Title order={3} mb="md" ta="center">
-              Choose how you will use this demo
+              {t("login.chooseDemoUse")}
             </Title>
             <Text c="dimmed" ta="center" mb="lg" size="sm" w="100%">
-              One JWT session for everyone — pick a path below to open the sign-in step. The same bootstrap account
-              applies; cards describe what you can do after authentication.
+              {t("login.chooseDemoUseHint")}
             </Text>
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" w="100%">
               {roleCards.map((card) => {
@@ -522,7 +523,7 @@ export default function LoginPage() {
                         {card.blurb}
                       </Text>
                       <Text size="xs" fw={700} tt="uppercase" c="dimmed" mt="xs">
-                        Available in this build
+                        {t("login.availableInBuild")}
                       </Text>
                       <List
                         spacing={6}
@@ -550,37 +551,37 @@ export default function LoginPage() {
 
           <Box w="100%">
             <Title order={3} mb="md">
-              API resources
+              {t("login.apiResources")}
             </Title>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" w="100%">
               <Paper withBorder p="md" component={Stack} gap="xs">
                 <Text fw={700} size="sm">
-                  OpenAPI / Swagger
+                  {t("login.apiCardDocsTitle")}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Interactive HTTP reference for every registered route.
+                  {t("login.apiCardDocsDesc")}
                 </Text>
                 <Anchor href="/api/docs" target="_blank" rel="noreferrer" size="sm" fw={600}>
-                  Open API docs →
+                  {t("login.apiCardDocsCta")}
                 </Anchor>
               </Paper>
               <Paper withBorder p="md" component={Stack} gap="xs">
                 <Text fw={700} size="sm">
-                  OpenAPI JSON
+                  {t("login.apiCardJsonTitle")}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Machine-readable OpenAPI 3 schema for codegen and tests.
+                  {t("login.apiCardJsonDesc")}
                 </Text>
                 <Anchor href="/api/openapi.json" target="_blank" rel="noreferrer" size="sm" fw={600}>
-                  Download JSON →
+                  {t("login.apiCardJsonCta")}
                 </Anchor>
               </Paper>
               <Paper withBorder p="md" component={Stack} gap="xs">
                 <Text fw={700} size="sm">
-                  Repository
+                  {t("login.apiCardRepoTitle")}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Source, issues, and contribution workflow.
+                  {t("login.apiCardRepoDesc")}
                 </Text>
                 <Anchor
                   href="https://github.com/orbiteus/orbiteus"
@@ -596,10 +597,10 @@ export default function LoginPage() {
               </Paper>
               <Paper withBorder p="md" component={Stack} gap="xs">
                 <Text fw={700} size="sm">
-                  Product site
+                  {t("login.apiCardSiteTitle")}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Positioning, licensing, and contact.
+                  {t("login.apiCardSiteDesc")}
                 </Text>
                 <Anchor href="https://orbiteus.com" target="_blank" rel="noreferrer" size="sm" fw={600}>
                   <Group gap={6} wrap="nowrap">
@@ -609,7 +610,7 @@ export default function LoginPage() {
               </Paper>
             </SimpleGrid>
             <Text size="sm" mt="md" c="dimmed">
-              Current API base URL:{" "}
+              {t("login.currentApiBase")}{" "}
               <Text span ff="monospace" size="sm" c="dark.8">
                 {apiBase}
               </Text>
@@ -619,7 +620,7 @@ export default function LoginPage() {
           <Checkbox
             checked={welcomeChecked}
             onChange={(e) => saveWelcomePreference(e.currentTarget.checked)}
-            label="Display this welcome page next time"
+            label={t("login.displayWelcomeNextTime")}
             color="dark"
           />
 
@@ -629,20 +630,20 @@ export default function LoginPage() {
                 <ThemeIcon variant="outline" color="dark" size="md" radius="md">
                   <IconDatabase size={18} />
                 </ThemeIcon>
-                <Title order={4}>Database status</Title>
+                <Title order={4}>{t("login.databaseStatus")}</Title>
               </Group>
               {metaLoading ? (
                 <Loader size="sm" color="dark" />
               ) : healthErr ? (
                 <Text size="sm" c="dimmed">
-                  Could not reach <Text span ff="monospace">/api/base/health</Text>. Is the backend up?
+                  {t("login.healthUnreachablePrefix")} <Text span ff="monospace">/api/base/health</Text>. {t("login.healthUnreachableSuffix")}
                 </Text>
               ) : (
                 <Stack gap={4}>
                   <Text size="sm">
-                    Status:{" "}
+                    {t("login.status")}{" "}
                     <Text span fw={700} tt="uppercase">
-                      {health?.status ?? "unknown"}
+                      {health?.status ?? t("login.unknown")}
                     </Text>
                   </Text>
                   <Text size="xs" c="dimmed" ff="monospace">
@@ -654,7 +655,7 @@ export default function LoginPage() {
 
             <Paper withBorder p="md">
               <Title order={4} mb="sm">
-                Active modules
+                {t("login.activeModules")}
               </Title>
               {metaLoading && !modules.length ? (
                 <Loader size="sm" color="dark" />
@@ -671,7 +672,7 @@ export default function LoginPage() {
                         </Badge>
                       </Group>
                       <Text size="xs" c="dimmed" mt={4}>
-                        Models: {m.models?.length ?? 0}
+                        {t("login.modelsCount", { count: m.models?.length ?? 0 })}
                       </Text>
                     </Paper>
                   ))}
@@ -683,23 +684,23 @@ export default function LoginPage() {
           <Stack gap="xs" align="center" pt="md" w="100%">
             <Group gap="md" justify="center" wrap="wrap">
               <Anchor href="/login" size="sm" c="dark" fw={600}>
-                Welcome
+                {t("login.footerWelcome")}
               </Anchor>
               <Text size="sm" c="dimmed">
                 ·
               </Text>
               <Anchor href="https://github.com/orbiteus/orbiteus/blob/main/README.md" size="sm" c="dark" fw={600}>
-                README
+                {t("login.footerReadme")}
               </Anchor>
               <Text size="sm" c="dimmed">
                 ·
               </Text>
               <Anchor href="/api/docs" size="sm" c="dark" fw={600}>
-                API docs
+                {t("login.footerApiDocs")}
               </Anchor>
             </Group>
             <Text size="xs" c="dimmed" ta="center">
-              Built with Next.js 16, FastAPI, SQLAlchemy 2 (async), and Mantine 9 — modular by design.
+              {t("login.footerBuiltWith")}
             </Text>
           </Stack>
         </Stack>

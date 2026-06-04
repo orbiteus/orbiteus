@@ -1,6 +1,6 @@
 """Audit-log helpers (DoD §4.x).
 
-The `ir_audit_log` table is the canonical, append-only ledger of "who
+The `base_audit_log` table is the canonical, append-only ledger of "who
 did what, when, on which record". The repository layer
 (`BaseRepository.create/update/delete`) writes to it for every CRUD
 mutation. The pieces that don't go through the repository — login
@@ -63,7 +63,7 @@ async def write_audit(
     redact: bool = True,
     autocommit: bool = False,
 ) -> None:
-    """Append a row to `ir_audit_log`.
+    """Append a row to `base_audit_log`.
 
     Errors are logged but never raised — observability MUST NOT break
     the user-visible request. (E.g. a transient DB hiccup during a
@@ -115,7 +115,7 @@ async def write_audit(
     safe_meta: dict[str, Any] = metadata or {}
 
     try:
-        from modules.base.model.mapping import ir_audit_log_table as audit
+        from modules.base.model.mapping import base_audit_log_table as audit
 
         now = datetime.now(timezone.utc)
         await session.execute(

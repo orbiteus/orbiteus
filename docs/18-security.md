@@ -24,7 +24,7 @@
   - `SECRET_KEY` (JWT): on suspected compromise; planned rotation requires
     a token revocation strategy (see `06-auth.md`).
   - `AI_SECRET_KEY` (Fernet): on suspected compromise; rotation requires
-    re-encryption of `ir_ai_credential` rows.
+    re-encryption of `base_ai_credential` rows.
   - Bootstrap admin password: must be changed on first login; production
     refuses to start with the default.
 

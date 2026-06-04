@@ -2,7 +2,7 @@
 
 Side effects that must survive a process crash (webhook delivery, email send,
 embeddings refresh) are committed atomically with the business transaction
-into `ir_outbox`. A Celery worker (PR 5) drains the table with idempotent
+into `base_outbox`. A Celery worker (PR 5) drains the table with idempotent
 retry and exponential backoff.
 
 Public API:
@@ -16,7 +16,7 @@ Public API:
         payload={"model": "crm.lead", "id": "..."},
     )
 
-The function INSERTs a row in `ir_outbox` using the same `AsyncSession` so
+The function INSERTs a row in `base_outbox` using the same `AsyncSession` so
 the business commit and the queue commit are one transaction.
 """
 from __future__ import annotations
@@ -84,14 +84,14 @@ async def enqueue(
         The new outbox row id.
     """
     # Lazy import to avoid circular imports during module load.
-    from modules.base.model.mapping import ir_outbox_table
+    from modules.base.model.mapping import base_outbox_table
 
     row_id = uuid.uuid4()
     now = datetime.now(timezone.utc)
     # `next_run_at` is a String(50) (Postgres VARCHAR) so the drainer can do
     # cheap text comparisons; coerce to ISO 8601 here.
     next_run_iso = (not_before or now).isoformat()
-    stmt = insert(ir_outbox_table).values(
+    stmt = insert(base_outbox_table).values(
         id=row_id,
         create_date=now,
         write_date=now,

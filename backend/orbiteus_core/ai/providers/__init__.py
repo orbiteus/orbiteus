@@ -7,7 +7,11 @@ from __future__ import annotations
 
 from .base import ChatResult, Provider, ProviderError
 
-__all__ = ["ChatResult", "Provider", "ProviderError", "get_provider"]
+PROVIDER_NAMES: frozenset[str] = frozenset(
+    {"anthropic", "openai", "ollama", "gemini"},
+)
+
+__all__ = ["ChatResult", "Provider", "ProviderError", "PROVIDER_NAMES", "get_provider"]
 
 
 def get_provider(name: str) -> Provider:
@@ -28,4 +32,8 @@ def get_provider(name: str) -> Provider:
         from .ollama import OllamaProvider
 
         return OllamaProvider()
+    if name == "gemini":
+        from .gemini import GeminiProvider
+
+        return GeminiProvider()
     raise ProviderError(f"unknown provider: {name}")

@@ -13,7 +13,7 @@ significantly.
 ## Decision
 
 Use `pgvector` extension on the existing PostgreSQL 16 instance. Image:
-`pgvector/pgvector:pg16`. Table `ir_embedding` stores `(tenant_id, model,
+`pgvector/pgvector:pg16`. Table `base_embedding` stores `(tenant_id, model,
 record_id, provider, model_name, dim, vector)` with an HNSW index.
 
 ## Consequences

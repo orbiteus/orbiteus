@@ -7,17 +7,16 @@ Order in the request flow
    when an access token is present.
 3. Auth middleware decodes the JWT and populates RequestContext.
 
-Why three buckets?
-------------------
-* IP bucket (`rl:ip:<ip>`)
-    Defends against attackers who lack a valid token (registration
-    flooders, naive scanners). Default 120/min.
-* User bucket (`rl:user:<user_id>`)
-    Defends against a single account hammering the API (script
-    misconfigured, runaway browser tab). Default 60/min.
-* Tenant bucket (`rl:tenant:<tenant_id>`)
-    Defends against an entire tenant exhausting shared infra. Default
-    1000/min.
+Policy (interactive admin UI)
+-----------------------------
+Authenticated **read** traffic (GET/HEAD on normal API routes) is **not**
+rate-limited — SPA navigation, list views, SSE handshakes, and ui-config
+must never surface HTTP 429 during normal use.
+
+Limits apply to:
+* unauthenticated requests (IP bucket — credential stuffing, scanners),
+* authenticated **mutations** (POST/PUT/PATCH/DELETE — per user + tenant),
+* expensive authenticated GETs (AI aggregate/stream endpoints).
 
 JWT decoding here is **best-effort**: a transient signature failure
 must NOT block a request that auth would otherwise reject with a clean
@@ -42,13 +41,24 @@ from orbiteus_core.security.rate_limit import RateDecision, check
 logger = logging.getLogger(__name__)
 
 
-# Routes that are explicitly exempt (probes, metrics, public landing assets).
+# Routes fully exempt — probes, metrics, branding, long-lived SSE, session metadata.
 EXEMPT_PATHS: tuple[str, ...] = (
     "/api/health/live",
     "/api/health/ready",
     "/metrics",
     "/api/base/branding",
+    "/api/base/ui-config",
+    "/api/base/i18n/locales",
+    "/api/base/i18n/messages",
+    "/api/realtime/subscribe",
 )
+
+# Authenticated GETs that remain rate-limited (LLM cost / abuse surface).
+EXPENSIVE_GET_PREFIXES: tuple[str, ...] = (
+    "/api/ai/",
+)
+
+_SAFE_READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 def _denied(decision: RateDecision, path: str) -> JSONResponse:
@@ -70,6 +80,20 @@ def _denied(decision: RateDecision, path: str) -> JSONResponse:
         },
         headers={"Retry-After": str(decision.retry_after)},
     )
+
+
+def _is_exempt_path(path: str) -> bool:
+    return any(path == ex or path.startswith(ex + "/") for ex in EXEMPT_PATHS)
+
+
+def _is_expensive_get(method: str, path: str) -> bool:
+    if method not in _SAFE_READ_METHODS:
+        return False
+    return any(path.startswith(prefix) for prefix in EXPENSIVE_GET_PREFIXES)
+
+
+def _is_safe_authenticated_read(method: str, path: str) -> bool:
+    return method in _SAFE_READ_METHODS and not _is_expensive_get(method, path)
 
 
 def _read_access_token(request: Request) -> str | None:
@@ -108,47 +132,53 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         path = request.url.path
-        if any(path == ex or path.startswith(ex + "/") for ex in EXEMPT_PATHS):
+        method = request.method.upper()
+
+        if _is_exempt_path(path):
             return await call_next(request)
 
         ip = request.client.host if request.client else "unknown"
+        token = _read_access_token(request)
+        tenant_id, user_id = _peek_jwt_claims(token) if token else (None, None)
 
-        # 1) IP bucket — covers anonymous + authenticated traffic.
+        # Authenticated SPA reads: no bucket — navigation must never 429.
+        if user_id and _is_safe_authenticated_read(method, path):
+            return await call_next(request)
+
+        # 1) IP bucket — anonymous traffic + auth mutations + expensive GETs.
         try:
             ip_decision = await check(f"ip:{ip}", settings.rate_limit_ip_per_minute)
         except Exception:  # noqa: BLE001
-            # Redis outage MUST NOT block traffic. The request still passes
-            # through every other layer (auth, RBAC, etc.) so this is safe.
             return await call_next(request)
 
         if not ip_decision.allowed:
             return _denied(ip_decision, path)
 
-        # 2) Token-derived buckets — only run when an access token is on
-        #    the request. We never block on a JWT-decode failure; the
-        #    auth layer downstream is the canonical 401 path.
-        token = _read_access_token(request)
-        if token:
-            tenant_id, user_id = _peek_jwt_claims(token)
+        if not token:
+            return await call_next(request)
 
-            if tenant_id:
-                try:
-                    t_decision = await check(
-                        f"tenant:{tenant_id}", settings.rate_limit_tenant_per_minute,
-                    )
-                except Exception:  # noqa: BLE001
-                    t_decision = None
-                if t_decision is not None and not t_decision.allowed:
-                    return _denied(t_decision, path)
+        # 2) Token-derived mutation / expensive-read buckets.
+        if tenant_id:
+            try:
+                t_decision = await check(
+                    f"tenant:{tenant_id}", settings.rate_limit_tenant_per_minute,
+                )
+            except Exception:  # noqa: BLE001
+                t_decision = None
+            if t_decision is not None and not t_decision.allowed:
+                return _denied(t_decision, path)
 
-            if user_id:
-                try:
-                    u_decision = await check(
-                        f"user:{user_id}", settings.rate_limit_user_per_minute,
-                    )
-                except Exception:  # noqa: BLE001
-                    u_decision = None
-                if u_decision is not None and not u_decision.allowed:
-                    return _denied(u_decision, path)
+        if user_id:
+            limit = (
+                settings.rate_limit_user_mutations_per_minute
+                if method not in _SAFE_READ_METHODS
+                else settings.rate_limit_user_per_minute
+            )
+            try:
+                u_decision = await check(f"user:{user_id}", limit)
+            except Exception:  # noqa: BLE001
+                u_decision = None
+            if u_decision is not None and not u_decision.allowed:
+                return _denied(u_decision, path)
 
         return await call_next(request)

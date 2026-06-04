@@ -51,3 +51,14 @@ on every PR. See [`docs/20-testing.md`](./docs/20-testing.md).
 
 When you change behavior, update the matching `docs/NN-*.md` file in the same
 PR. Documentation that drifts from the code is considered a bug.
+
+## Spec-first workflow (AI agents)
+
+For any non-trivial module or multi-file feature:
+
+1. Read [`docs/pre-prompt.md`](./docs/pre-prompt.md) and
+   [`docs/39-spec-driven-agent-workflow.md`](./docs/39-spec-driven-agent-workflow.md).
+2. Update `modules/<name>/docs/spec.md` (or framework tree-spec) **before**
+   implementation.
+3. Prefer **Tier A** generic admin UI; use **Tier B** domain screens only when
+   the spec requires it (ADR-0021, `docs/40-reference-product-caltrain.md`).

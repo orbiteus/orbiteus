@@ -28,6 +28,10 @@ x-backend-env: &backend_env
   CORS_ORIGINS: ${CORS_ORIGINS:-["https://app.example.com"]}
   BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL}
   BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD}
+  # Attachment filestore (local). Mount orbiteus_attachments on backend (below).
+  ATTACHMENT_STORAGE: ${ATTACHMENT_STORAGE:-local}
+  ATTACHMENT_STORAGE_PATH: ${ATTACHMENT_STORAGE_PATH:-/var/orbiteus/attachments}
+  # ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-52428800}
 
 services:
   postgres:
@@ -112,6 +116,8 @@ services:
       timeout: 3s
       retries: 6
       start_period: 30s
+    volumes:
+      - orbiteus_attachments:/var/orbiteus/attachments
     restart: unless-stopped
 
   worker:
@@ -189,3 +195,4 @@ services:
 volumes:
   orbiteus_pg:
   orbiteus_redis:
+  orbiteus_attachments:

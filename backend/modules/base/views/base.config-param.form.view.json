@@ -1,0 +1,10 @@
+{
+  "model": "base.config-param",
+  "type": "form",
+  "sections": [
+    {
+      "title": "Parameter",
+      "fields": ["key", "value", "description"]
+    }
+  ]
+}

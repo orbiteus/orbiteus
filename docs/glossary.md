@@ -18,11 +18,14 @@
 | **Action** | A declarative business operation registered by a module. Backs the Command Palette and acts as an AI tool. See `15-ai-layer.md`. |
 | **AI Tool** | Anything callable by an AI provider's function-calling API. Sources: registered Actions, per-model `QueryTool`, `semantic_search`. |
 | **AIModuleConfig** | The `ai.py` declaration in a module. Lists `accessible_models`, `callable_actions`, `suggested_prompts`, system prompt overrides. |
+| **Agent** | A tenant-scoped named AI persona (`base.agent`) with scoped tools and system prompt. Configured in admin or API; executed by `AgentExecutor`. |
+| **Agent run** | One execution of an agent (`base.agent-run`): prompt in, tool loop, text out. Sync via API or async via Celery. |
+| **AgentLoop** | Engine multi-turn chat loop that executes read/action/semantic tools until the model finishes or hits a turn cap. |
 | **BYOK** | "Bring Your Own Key": tenants supply their own provider API tokens; engine never ships shared keys. |
 | **EventBus** | In-process publish/subscribe within a single request lifecycle. Used for synchronous hooks (audit, cache invalidation, embeddings refresh). |
-| **Outbox** | The `ir_outbox` table that persists side-effect intents atomically with the business transaction. Drained by Celery workers with idempotent retry. |
+| **Outbox** | The `base_outbox` table that persists side-effect intents atomically with the business transaction. Drained by Celery workers with idempotent retry. |
 | **Realtime topic** | A Pub/Sub channel of the form `tenant:{id}:model:{m}:record:{id}` for SSE fan-out. |
-| **Audit log** | Mandatory `ir_audit_log` row for every CRUD operation: actor, request_id, tenant_id, before/after diff. Opt-out only for system log tables. |
+| **Audit log** | Mandatory `base_audit_log` row for every CRUD operation: actor, request_id, tenant_id, before/after diff. Opt-out only for system log tables. |
 | **ui-config** | The metadata document at `GET /api/base/ui-config` that the admin UI consumes to render lists, forms, kanbans, calendars, and command palette entries — without per-module TSX. |
 | **Widget** | A frontend component registered for a field type or attribute (text, email, badge, monetary, statusbar, many2one, ...). Forms and lists render through the widget registry only. |
 | **Command Palette** | The ⌘K modal that searches Actions via RapidFuzz. Deterministic, no LLM in the happy path. Distinct from `<PromptInput>` (generative AI chat). |

@@ -34,7 +34,7 @@ class BaseModel:
 
 @dataclass
 class SystemModel:
-    """Base for system/ir_* objects (no tenant isolation – global config)."""
+    """Base for system/engine system objects (no tenant isolation – global config)."""
 
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     create_date: datetime | None = None

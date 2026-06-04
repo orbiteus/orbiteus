@@ -17,6 +17,7 @@ import { IconAlertCircle, IconChartBar } from "@tabler/icons-react";
 import axios from "axios";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useT } from "@orbiteus/i18n";
 
 import type { AIScope } from "./types";
 
@@ -68,6 +69,7 @@ interface DashboardResponse {
  *     viewer always knows what's being aggregated.
  */
 export function AIDashboard({ scope, initialPrompt = "" }: Props) {
+  const t = useT();
   const [prompt, setPrompt] = useState(initialPrompt);
   const [response, setResponse] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +86,7 @@ export function AIDashboard({ scope, initialPrompt = "" }: Props) {
       const detail = (err as {
         response?: { data?: { detail?: unknown } };
       })?.response?.data?.detail;
-      let msg = "Failed to generate dashboard.";
+      let msg = t("ai.dashboard.error.generate");
       if (typeof detail === "string") {
         msg = detail;
       } else if (detail && typeof detail === "object" && "message" in detail) {
@@ -103,7 +105,7 @@ export function AIDashboard({ scope, initialPrompt = "" }: Props) {
         <Group gap="xs" align="end">
           <TextInput
             flex={1}
-            placeholder="Describe the chart you want…"
+            placeholder={t("ai.dashboard.placeholder")}
             value={prompt}
             onChange={(e) => setPrompt(e.currentTarget.value)}
             onKeyDown={(e) => {
@@ -120,7 +122,7 @@ export function AIDashboard({ scope, initialPrompt = "" }: Props) {
             disabled={!prompt.trim()}
             leftSection={<IconChartBar size={16} />}
           >
-            Generate
+            {t("ai.dashboard.generate")}
           </Button>
         </Group>
 
@@ -143,17 +145,14 @@ export function AIDashboard({ scope, initialPrompt = "" }: Props) {
               <Title order={5}>{response.title}</Title>
               {response.usage_tokens ? (
                 <Badge variant="light" color="gray" size="sm">
-                  {response.usage_tokens} tokens
+                  {t("ai.dashboard.tokensUsed", { count: response.usage_tokens })}
                 </Badge>
               ) : null}
             </Group>
 
             {response.data.length === 0 ? (
               <Alert color="gray" icon={<IconAlertCircle size={16} />}>
-                The aggregate returned no rows. Either the underlying model
-                is empty for this tenant, or your role has no <Code>read</Code>{" "}
-                permission on{" "}
-                <Code>{response.spec.model}</Code>.
+                {t("ai.dashboard.emptyData", { model: response.spec.model })}
               </Alert>
             ) : (
               <div style={{ width: "100%", height: 320 }}>
@@ -171,32 +170,30 @@ export function AIDashboard({ scope, initialPrompt = "" }: Props) {
 
             <Group gap="xs" wrap="wrap">
               <Badge variant="dot" color="dark">
-                model: <Code>{response.spec.model}</Code>
+                {t("ai.dashboard.spec.model")} <Code>{response.spec.model}</Code>
               </Badge>
               <Badge variant="dot" color="dark">
-                group_by: <Code>{response.spec.group_by}</Code>
+                {t("ai.dashboard.spec.groupBy")} <Code>{response.spec.group_by}</Code>
               </Badge>
               <Badge variant="dot" color="dark">
-                op: <Code>{response.spec.op}</Code>
+                {t("ai.dashboard.spec.op")} <Code>{response.spec.op}</Code>
               </Badge>
               {response.spec.measure ? (
                 <Badge variant="dot" color="dark">
-                  measure: <Code>{response.spec.measure}</Code>
+                  {t("ai.dashboard.spec.measure")} <Code>{response.spec.measure}</Code>
                 </Badge>
               ) : null}
             </Group>
             <Text size="xs" c="dimmed">
-              The AI never reads your data directly — it only proposes the
-              aggregate spec. The backend executes it through the same RBAC
-              + tenant-filter path your repository uses.
+              {t("ai.dashboard.footerHint")}
             </Text>
           </Stack>
         ) : null}
 
         {!loading && !response && !error ? (
           <Text size="sm" c="dimmed">
-            Try: <Code>count leads by stage</Code>, <Code>sum expected revenue per stage</Code>,
-            <Code>average lead value by team</Code>.
+            {t("ai.dashboard.examplesLabel")} <Code>count leads by stage</Code>,{" "}
+            <Code>sum expected revenue per stage</Code>, <Code>average lead value by team</Code>.
           </Text>
         ) : null}
       </Stack>

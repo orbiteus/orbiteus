@@ -1,11 +1,14 @@
 """Base module custom endpoints (beyond auto-CRUD)."""
 from __future__ import annotations
 
+import asyncio
+import logging
 import secrets
 import uuid
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from orbiteus_core.context import RequestContext
@@ -13,6 +16,8 @@ from orbiteus_core.db import get_session
 from orbiteus_core.security.middleware import require_auth, require_superadmin
 
 router = APIRouter(tags=["base"])
+
+logger = logging.getLogger(__name__)
 
 _BRANDING_KEYS = ("app.name", "app.logo_url", "app.favicon_url")
 _BRANDING_DEFAULTS = {
@@ -25,9 +30,9 @@ _BRANDING_DEFAULTS = {
 @router.get("/branding")
 async def get_branding(session: AsyncSession = Depends(get_session)) -> dict:
     """Return public branding config (no auth required)."""
-    from modules.base.controller.repositories import IrConfigParamRepository
+    from modules.base.controller.repositories import ConfigParamRepository
     ctx = RequestContext(is_superadmin=True)
-    repo = IrConfigParamRepository(session, ctx)
+    repo = ConfigParamRepository(session, ctx)
     result = dict(_BRANDING_DEFAULTS)
     for key in _BRANDING_KEYS:
         try:
@@ -47,6 +52,29 @@ async def get_branding(session: AsyncSession = Depends(get_session)) -> dict:
 async def health() -> dict:
     """System health check."""
     return {"status": "ok", "service": "orbiteus-backend"}
+
+
+@router.get("/system-status", include_in_schema=True)
+async def system_status(
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    """Aggregate status of Orbiteus framework components (Technical → System status)."""
+    _ = ctx
+    from orbiteus_core.system_status import collect_system_status
+
+    try:
+        return await asyncio.wait_for(collect_system_status(), timeout=12.0)
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail="System status probe timed out",
+        ) from exc
+    except Exception as exc:
+        logger.exception("system_status endpoint failed")
+        raise HTTPException(
+            status_code=503,
+            detail="System status probe failed",
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +175,7 @@ async def aggregate(
     stmt = select(group_col, agg).group_by(group_col)
 
     # Tenant filter — every business table carries `tenant_id`. The
-    # `ir_*` tables that don't have a tenant_id (configured at the
+    # `base_*` tables that don't have a tenant_id (configured at the
     # instance level) are still searchable by superadmin only.
     if "tenant_id" in table.c and ctx.tenant_id is not None and not ctx.is_superadmin:
         stmt = stmt.where(table.c.tenant_id == ctx.tenant_id)
@@ -197,7 +225,7 @@ async def list_audit_log(
     Filters:
         - model         e.g. ?model=crm.customer
         - record_id     e.g. ?record_id=<uuid>
-        - actor         user | ai | system
+        - actor         user | ai | portal | system
         - operation     create | update | delete | tool_call | login | login_failed
         - user_id       filter by acting user
 
@@ -205,7 +233,7 @@ async def list_audit_log(
     """
     from sqlalchemy import desc, select
 
-    from modules.base.model.mapping import ir_audit_log_table as t
+    from modules.base.model.mapping import base_audit_log_table as t
 
     stmt = select(t)
     if not ctx.is_superadmin and ctx.tenant_id is not None:
@@ -230,6 +258,10 @@ async def list_audit_log(
     stmt = stmt.order_by(desc(t.c.create_date)).offset(offset).limit(limit)
     rows = (await session.execute(stmt)).mappings().all()
 
+    from orbiteus_core.audit_initiator import build_initiator, load_users_for_audit_rows
+
+    users = await load_users_for_audit_rows(session, rows)
+
     return {
         "items": [
             {
@@ -244,6 +276,14 @@ async def list_audit_log(
                 "operation": r["operation"],
                 "diff": r["diff"],
                 "metadata": r["metadata"],
+                "initiator": build_initiator(
+                    actor=r["actor"],
+                    user_id=r["user_id"],
+                    request_id=r["request_id"],
+                    diff=r["diff"],
+                    metadata=r["metadata"],
+                    users=users,
+                ),
             }
             for r in rows
         ],
@@ -251,6 +291,142 @@ async def list_audit_log(
         "limit": limit,
         "offset": offset,
     }
+
+
+# ---------------------------------------------------------------------------
+# Attachments (filestore + metadata) — see docs/07-api.md
+# ---------------------------------------------------------------------------
+
+
+@router.get("/attachments")
+async def list_attachments(
+    q: str | None = Query(default=None, description="Search attachment name (ilike)"),
+    res_model: str | None = Query(default=None),
+    res_id: uuid.UUID | None = Query(default=None),
+    mimetype: str | None = Query(default=None),
+    limit: int = Query(default=50, le=200, ge=1),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    """List attachments for a record or tenant-wide (system admins only).
+
+    When ``res_model`` and ``res_id`` are provided, returns files linked to
+    that record (requires read access on the record). Without them, only
+    ``base.group_system`` may search the whole tenant catalog.
+    """
+    from modules.base.controller.attachment_service import AttachmentService
+
+    try:
+        return await AttachmentService(session).list_attachments(
+            ctx,
+            q=q,
+            res_model=res_model,
+            res_id=res_id,
+            mimetype=mimetype,
+            limit=limit,
+            offset=offset,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        from orbiteus_core.exceptions import AccessDenied
+
+        if isinstance(exc, AccessDenied):
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise
+
+
+@router.post("/attachments")
+async def upload_attachment(
+    file: UploadFile = File(...),
+    res_model: str = Form(...),
+    res_id: uuid.UUID = Form(...),
+    description: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    """Upload a file and link it to ``res_model`` / ``res_id``."""
+    from modules.base.controller.attachment_service import AttachmentService
+
+    contents = await file.read()
+    try:
+        result = await AttachmentService(session).upload(
+            ctx,
+            file_bytes=contents,
+            filename=file.filename or "upload.bin",
+            mimetype=file.content_type or "application/octet-stream",
+            res_model=res_model,
+            res_id=res_id,
+            description=description,
+        )
+        await session.commit()
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        from orbiteus_core.exceptions import AccessDenied
+
+        if isinstance(exc, AccessDenied):
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise
+
+
+@router.get("/attachments/{attachment_id}")
+async def get_attachment_metadata(
+    attachment_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    """Return attachment metadata (not the binary)."""
+    from modules.base.controller.attachment_service import AttachmentService
+
+    return await AttachmentService(session).get_metadata(ctx, attachment_id)
+
+
+@router.get("/attachments/{attachment_id}/download")
+async def download_attachment(
+    attachment_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> StreamingResponse:
+    """Stream the attachment binary."""
+    from modules.base.controller.attachment_service import AttachmentService
+
+    att, data = await AttachmentService(session).download(ctx, attachment_id)
+    media = att.mimetype or "application/octet-stream"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{att.name}"',
+        "Content-Length": str(len(data)),
+    }
+    return StreamingResponse(iter([data]), media_type=media, headers=headers)
+
+
+@router.delete("/attachments/{attachment_id}")
+async def delete_attachment(
+    attachment_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    """Soft-delete metadata and remove the binary from storage."""
+    from modules.base.controller.attachment_service import AttachmentService
+
+    await AttachmentService(session).delete(ctx, attachment_id)
+    await session.commit()
+    return {"status": "deleted", "id": str(attachment_id)}
+
+
+@router.post("/attachments/purge-orphans")
+async def purge_orphan_attachments(
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_auth),
+) -> dict:
+    """Remove attachment metadata + files that point at deleted business records."""
+    from modules.base.controller.attachment_service import AttachmentService
+
+    removed = await AttachmentService(session).purge_orphan_attachments(ctx)
+    await session.commit()
+    return {"status": "ok", "removed": removed}
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +501,7 @@ async def list_webhooks(
     """Return webhook subscribers for the caller's tenant."""
     from sqlalchemy import select, desc
 
-    from modules.base.model.mapping import ir_webhooks_table as t
+    from modules.base.model.mapping import base_webhooks_table as t
 
     if ctx.tenant_id is None:
         return {"items": []}
@@ -344,7 +520,7 @@ async def create_webhook(
     """Register a new webhook subscriber."""
     from sqlalchemy import insert, select
 
-    from modules.base.model.mapping import ir_webhooks_table as t
+    from modules.base.model.mapping import base_webhooks_table as t
 
     if ctx.tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant context required")
@@ -389,7 +565,7 @@ async def update_webhook(
     """Update a webhook subscriber. Empty fields keep their previous value."""
     from sqlalchemy import select, update
 
-    from modules.base.model.mapping import ir_webhooks_table as t
+    from modules.base.model.mapping import base_webhooks_table as t
 
     if ctx.tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant context required")
@@ -433,7 +609,7 @@ async def delete_webhook(
     """Soft-delete (active=false) so audit trail is preserved."""
     from sqlalchemy import update
 
-    from modules.base.model.mapping import ir_webhooks_table as t
+    from modules.base.model.mapping import base_webhooks_table as t
 
     if ctx.tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant context required")
@@ -455,7 +631,7 @@ async def test_webhook(
     """Send a synthetic delivery so the operator can verify the receiver."""
     from sqlalchemy import select
 
-    from modules.base.model.mapping import ir_webhooks_table as t
+    from modules.base.model.mapping import base_webhooks_table as t
 
     if ctx.tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant context required")
@@ -493,14 +669,168 @@ async def test_webhook(
 
 
 @router.get("/modules", dependencies=[Depends(require_superadmin)])
-async def list_modules() -> dict:
-    """List all registered modules and their load order."""
-    from orbiteus_core.registry import registry
+async def list_modules(
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_superadmin),
+) -> dict:
+    """Catalog of registered modules with enable flags for the admin UI."""
+    from orbiteus_core.module_catalog import build_module_catalog, load_enabled_map
 
+    enabled_map = await load_enabled_map(session, ctx)
+    modules = build_module_catalog(enabled_map)
     return {
-        "modules": registry.loaded_modules,
-        "total": len(registry.loaded_modules),
+        "modules": modules,
+        "total": len(modules),
+        "enabled_count": sum(1 for m in modules if m["enabled"]),
     }
+
+
+class ModuleEnabledPatch(BaseModel):
+    enabled: bool
+
+
+@router.patch("/modules/{module_name}", dependencies=[Depends(require_superadmin)])
+async def patch_module_enabled(
+    module_name: str,
+    body: ModuleEnabledPatch,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_superadmin),
+) -> dict:
+    """Toggle a product module on/off (persists to base_config_params)."""
+    from orbiteus_core.module_catalog import set_module_enabled
+
+    return await set_module_enabled(session, ctx, module_name, body.enabled)
+
+
+# ---------------------------------------------------------------------------
+# Connectivity → Mail (SMTP)
+# ---------------------------------------------------------------------------
+
+class MailSettingsWrite(BaseModel):
+    host: str
+    port: int = Field(default=587, ge=1, le=65535)
+    user: str = ""
+    password: str | None = None
+    use_tls: bool = True
+    from_address: str = ""
+
+
+class MailSmtpTestBody(BaseModel):
+    host: str | None = None
+    port: int | None = Field(default=None, ge=1, le=65535)
+    user: str | None = None
+    password: str | None = None
+    use_tls: bool | None = None
+    from_address: str | None = None
+
+
+class MailSendTestBody(MailSmtpTestBody):
+    to: EmailStr
+
+
+@router.get("/mail/settings", dependencies=[Depends(require_superadmin)])
+async def get_mail_settings(
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_superadmin),
+) -> dict:
+    """Return effective SMTP settings for Connectivity → Mail (no password)."""
+    from orbiteus_core.mail_settings import get_mail_settings_public
+
+    return await get_mail_settings_public(session)
+
+
+@router.put("/mail/settings", dependencies=[Depends(require_superadmin)])
+async def put_mail_settings(
+    body: MailSettingsWrite,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_superadmin),
+) -> dict:
+    """Persist SMTP settings to base_config_params (password encrypted at rest)."""
+    from orbiteus_core.config import settings
+    from orbiteus_core.mail_settings import save_mail_settings
+
+    from_address = body.from_address.strip() or settings.smtp_from_address
+    return await save_mail_settings(
+        session,
+        ctx,
+        host=body.host,
+        port=body.port,
+        user=body.user,
+        password=body.password,
+        use_tls=body.use_tls,
+        from_address=from_address,
+    )
+
+
+@router.post("/mail/settings/test-connection", dependencies=[Depends(require_superadmin)])
+async def test_mail_connection(
+    body: MailSmtpTestBody,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_superadmin),
+) -> dict:
+    """Verify SMTP host reachability and optional AUTH."""
+    from orbiteus_core.mail_settings import resolve_smtp_for_test
+    from orbiteus_core.mail_transport import verify_smtp_connection
+
+    cfg = await resolve_smtp_for_test(
+        session,
+        host=body.host,
+        port=body.port,
+        user=body.user,
+        password=body.password,
+        use_tls=body.use_tls,
+        from_address=body.from_address,
+    )
+    try:
+        await verify_smtp_connection(cfg)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "mail.connection_failed", "message": str(exc)},
+        ) from exc
+    return {"status": "ok", "host": cfg.host, "port": cfg.port}
+
+
+@router.post("/mail/settings/send-test", dependencies=[Depends(require_superadmin)])
+async def send_test_mail(
+    body: MailSendTestBody,
+    session: AsyncSession = Depends(get_session),
+    ctx: RequestContext = Depends(require_superadmin),
+) -> dict:
+    """Send a one-off test message using form values or saved settings."""
+    from orbiteus_core.mail import send_mail
+    from orbiteus_core.mail_settings import resolve_smtp_for_test
+
+    cfg = await resolve_smtp_for_test(
+        session,
+        host=body.host,
+        port=body.port,
+        user=body.user,
+        password=body.password,
+        use_tls=body.use_tls,
+        from_address=body.from_address,
+    )
+    try:
+        await send_mail(
+            to=str(body.to),
+            subject="Orbiteus SMTP test",
+            body_text=(
+                "This is a test message from your Orbiteus instance.\n\n"
+                "If you received it, outbound mail is configured correctly."
+            ),
+            body_html=(
+                "<p>This is a test message from your <strong>Orbiteus</strong> instance.</p>"
+                "<p>If you received it, outbound mail is configured correctly.</p>"
+            ),
+            smtp=cfg,
+            raise_on_error=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "mail.send_failed", "message": str(exc)},
+        ) from exc
+    return {"status": "ok", "to": str(body.to)}
 
 
 @router.get("/menus")
@@ -508,10 +838,10 @@ async def get_menu_tree(
     session: AsyncSession = Depends(get_session),
     ctx: RequestContext = Depends(require_superadmin),
 ) -> dict:
-    """Return the full ir_ui_menu tree for the Admin UI sidebar."""
-    from modules.base.controller.repositories import IrUiMenuRepository
+    """Return the full base_ui_menus tree for the Admin UI sidebar."""
+    from modules.base.controller.repositories import UiMenuRepository
 
-    repo = IrUiMenuRepository(session, ctx)
+    repo = UiMenuRepository(session, ctx)
     menus, total = await repo.search(limit=500)
 
     menu_dict = {str(m.id): {"id": str(m.id), "name": m.name,
@@ -546,10 +876,10 @@ async def get_view(
       - model: e.g. crm.customer
       - type: form / list / kanban / calendar / search  (default: form)
     """
-    from modules.base.controller.repositories import IrUiViewRepository
+    from modules.base.controller.repositories import UiViewRepository
     from orbiteus_core.view_loader import resolve_arch
 
-    repo = IrUiViewRepository(session, ctx)
+    repo = UiViewRepository(session, ctx)
 
     # Load base view (no inherit_id, matching model+type)
     base_views, _ = await repo.search(
@@ -618,14 +948,51 @@ def _extract_schema_fields(write_schema: type) -> list[dict]:
 
 
 @router.get("/ui-config")
-async def get_ui_config() -> dict:
+async def get_ui_config(
+    session: AsyncSession = Depends(get_session),
+) -> dict:
     """Return full UI configuration for dynamic frontend rendering.
 
-    Uses in-memory registry (XML views + Pydantic schema introspection) —
-    no DB query needed, always consistent with the loaded modules.
+    Uses in-memory registry (XML views + Pydantic schema introspection).
+    Product modules disabled in the module catalog are omitted.
     """
+    from orbiteus_core.module_catalog import load_enabled_map
     from orbiteus_core.ui_config import build_ui_config
-    return build_ui_config()
+
+    enabled_map = await load_enabled_map(session)
+    return build_ui_config(enabled_map=enabled_map)
+
+
+@router.get("/i18n/locales")
+async def list_ui_locales(
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Registered UI languages (built-in + enabled module packs)."""
+    from orbiteus_core.i18n_registry import locales_payload
+    from orbiteus_core.module_catalog import load_enabled_map
+
+    enabled_map = await load_enabled_map(session)
+    return {"locales": locales_payload(enabled_map)}
+
+
+@router.get("/i18n/messages/{lang}")
+async def get_ui_messages(
+    lang: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Merged UI messages for a locale (module JSON files + DB overrides)."""
+    from fastapi.responses import JSONResponse
+
+    from orbiteus_core.i18n_registry import merged_messages_for, normalize_registered_language
+    from orbiteus_core.module_catalog import load_enabled_map
+
+    enabled_map = await load_enabled_map(session)
+    code = normalize_registered_language(lang, enabled_map=enabled_map)
+    messages = await merged_messages_for(session, code, enabled_map=enabled_map)
+    return JSONResponse(
+        content={"lang": code, "messages": messages},
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.post("/rbac/reload", dependencies=[Depends(require_superadmin)])

@@ -29,25 +29,24 @@ from orbiteus_core.mapper import (
 
 from modules.base.model.domain import (
     Company,
-    IrActionServer,
-    IrActionWindow,
-    IrAiCredential,
-    IrAttachment,
-    IrAuditLog,
-    IrConfigParam,
-    IrCron,
-    IrEmbedding,
-    IrMailTemplate,
-    IrModel,
-    IrModelAccess,
-    IrModelField,
-    IrOutbox,
-    IrRule,
-    IrSequence,
-    IrUiMenu,
-    IrUiView,
-    IrWebhook,
-    Partner,
+    AiCredential,
+    Attachment,
+    AuditLog,
+    ConfigParam,
+    UiTranslation,
+    EmbeddingRecord,
+    Agent,
+    AgentRun,
+    MailTemplate,
+    RegistryModel,
+    ModelAccess,
+    RegistryModelField,
+    Outbox,
+    RecordRule,
+    Role,
+    UiMenu,
+    UiView,
+    Webhook,
     Tenant,
     User,
 )
@@ -87,24 +86,6 @@ companies_table = Table(
     Column("settings", JSON, nullable=False, server_default="{}"),
 )
 
-partners_table = Table(
-    "base_partners",
-    metadata,
-    *make_base_columns(),
-    Column("name", String(255), nullable=False),
-    Column("email", String(255)),
-    Column("phone", String(50)),
-    Column("mobile", String(50)),
-    Column("street", String(255)),
-    Column("city", String(100)),
-    Column("zip_code", String(20)),
-    Column("country_code", String(5), server_default="PL"),
-    Column("is_company", Boolean, server_default="false"),
-    Column("vat", String(50)),
-    Column("parent_partner_id", UUID(as_uuid=True), ForeignKey("base_partners.id"), nullable=True),
-    Column("company_name", String(255)),
-)
-
 users_table = Table(
     "base_users",
     metadata,
@@ -114,24 +95,43 @@ users_table = Table(
     Column("password_hash", String(255), nullable=False),
     Column("is_active", Boolean, nullable=False, server_default="true"),
     Column("is_superadmin", Boolean, nullable=False, server_default="false"),
-    Column("partner_id", UUID(as_uuid=True), ForeignKey("base_partners.id"), nullable=True),
     Column("company_ids", JSON, nullable=False, server_default="[]"),
     Column("role_ids", JSON, nullable=False, server_default="[]"),
     Column("totp_secret", String(64)),
     Column("totp_enabled", Boolean, server_default="false"),
     # JSON list of bcrypt-hashed one-time recovery codes (PR final).
     Column("recovery_codes_hashed", JSON, nullable=False, server_default="[]"),
-    Column("last_login", String(50)),
+    Column("last_login", DateTime(timezone=True)),
+    Column("last_login_device", String(20)),
     Column("language", String(10), server_default="pl"),
     Column("timezone", String(50), server_default="Europe/Warsaw"),
 )
 
+user_roles_table = Table(
+    "base_user_roles",
+    metadata,
+    Column(
+        "user_id",
+        UUID(as_uuid=True),
+        ForeignKey("base_users.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
+    Column(
+        "role_id",
+        UUID(as_uuid=True),
+        ForeignKey("base_roles.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    ),
+)
+
 # ---------------------------------------------------------------------------
-# ir_* system tables
+# base engine system tables
 # ---------------------------------------------------------------------------
 
-ir_models_table = Table(
-    "ir_models",
+base_models_table = Table(
+    "base_models",
     metadata,
     *make_system_columns(),
     Column("model_name", String(255), nullable=False, unique=True),
@@ -141,11 +141,11 @@ ir_models_table = Table(
     Column("is_transient", Boolean, server_default="false"),
 )
 
-ir_model_fields_table = Table(
-    "ir_model_fields",
+base_model_fields_table = Table(
+    "base_model_fields",
     metadata,
     *make_system_columns(),
-    Column("model_id", UUID(as_uuid=True), ForeignKey("ir_models.id"), nullable=False),
+    Column("model_id", UUID(as_uuid=True), ForeignKey("base_models.id"), nullable=False),
     Column("model_name", String(255), nullable=False, index=True),
     Column("field_name", String(255), nullable=False),
     Column("field_type", String(50), nullable=False),
@@ -157,8 +157,19 @@ ir_model_fields_table = Table(
     Column("related_model", String(255)),
 )
 
-ir_model_access_table = Table(
-    "ir_model_access",
+base_roles_table = Table(
+    "base_roles",
+    metadata,
+    *make_system_columns(),
+    Column("name", String(255), nullable=False),
+    Column("code", String(255), nullable=False, unique=True, index=True),
+    Column("description", Text),
+    Column("is_system", Boolean, nullable=False, server_default="false"),
+    Column("active", Boolean, nullable=False, server_default="true"),
+)
+
+base_model_access_table = Table(
+    "base_model_access",
     metadata,
     *make_system_columns(),
     Column("model_name", String(255), nullable=False, index=True),
@@ -169,8 +180,8 @@ ir_model_access_table = Table(
     Column("perm_unlink", Boolean, server_default="false"),
 )
 
-ir_rules_table = Table(
-    "ir_rules",
+base_rules_table = Table(
+    "base_rules",
     metadata,
     *make_system_columns(),
     Column("name", String(255), nullable=False),
@@ -184,12 +195,12 @@ ir_rules_table = Table(
     Column("perm_unlink", Boolean, server_default="true"),
 )
 
-ir_ui_menus_table = Table(
-    "ir_ui_menus",
+base_ui_menus_table = Table(
+    "base_ui_menus",
     metadata,
     *make_system_columns(),
     Column("name", String(255), nullable=False),
-    Column("parent_id", UUID(as_uuid=True), ForeignKey("ir_ui_menus.id"), nullable=True),
+    Column("parent_id", UUID(as_uuid=True), ForeignKey("base_ui_menus.id"), nullable=True),
     Column("sequence", Integer, server_default="10"),
     Column("action_id", UUID(as_uuid=True), nullable=True),
     Column("action_type", String(100)),
@@ -198,45 +209,8 @@ ir_ui_menus_table = Table(
     Column("web_icon", String(255)),
 )
 
-ir_action_windows_table = Table(
-    "ir_action_windows",
-    metadata,
-    *make_system_columns(),
-    Column("name", String(255), nullable=False),
-    Column("model_name", String(255), nullable=False),
-    Column("view_mode", String(100), server_default="list,form"),
-    Column("domain", Text, server_default="[]"),
-    Column("context", Text, server_default="{}"),
-    Column("target", String(50), server_default="current"),
-)
-
-ir_action_servers_table = Table(
-    "ir_action_servers",
-    metadata,
-    *make_system_columns(),
-    Column("name", String(255), nullable=False),
-    Column("model_name", String(255), nullable=False),
-    Column("code", Text),
-    Column("action_type", String(50), server_default="code"),
-    Column("workflow_name", String(255)),
-)
-
-ir_sequences_table = Table(
-    "ir_sequences",
-    metadata,
-    *make_system_columns(),
-    Column("name", String(255), nullable=False),
-    Column("code", String(100), nullable=False, unique=True),
-    Column("prefix", String(50)),
-    Column("suffix", String(50)),
-    Column("padding", Integer, server_default="5"),
-    Column("number_next", Integer, server_default="1"),
-    Column("number_increment", Integer, server_default="1"),
-    Column("use_date_range", Boolean, server_default="false"),
-)
-
-ir_config_params_table = Table(
-    "ir_config_params",
+base_config_params_table = Table(
+    "base_config_params",
     metadata,
     *make_system_columns(),
     Column("key", String(255), nullable=False, unique=True),
@@ -245,24 +219,18 @@ ir_config_params_table = Table(
     Column("groups", JSON, server_default="[]"),
 )
 
-ir_crons_table = Table(
-    "ir_crons",
+base_ui_translations_table = Table(
+    "base_ui_translations",
     metadata,
     *make_system_columns(),
-    Column("name", String(255), nullable=False),
-    Column("model_name", String(255)),
-    Column("function_name", String(255)),
-    Column("args", Text, server_default="[]"),
-    Column("kwargs", Text, server_default="{}"),
-    Column("interval_number", Integer, server_default="1"),
-    Column("interval_type", String(20), server_default="hours"),
-    Column("is_active", Boolean, server_default="true"),
-    Column("next_call", String(50)),
-    Column("temporal_schedule_id", String(255)),
+    Column("lang", String(16), nullable=False, index=True),
+    Column("module", String(100), nullable=False, server_default=""),
+    Column("msg_key", String(255), nullable=False, index=True),
+    Column("value", Text, nullable=False, server_default=""),
 )
 
-ir_mail_templates_table = Table(
-    "ir_mail_templates",
+base_mail_templates_table = Table(
+    "base_mail_templates",
     metadata,
     *make_system_columns(),
     Column("name", String(255), nullable=False),
@@ -275,22 +243,22 @@ ir_mail_templates_table = Table(
     Column("auto_delete", Boolean, server_default="true"),
 )
 
-ir_ui_views_table = Table(
-    "ir_ui_views",
+base_ui_views_table = Table(
+    "base_ui_views",
     metadata,
     *make_system_columns(),
     Column("name", String(255), nullable=False, unique=True),
     Column("model", String(255), nullable=False, index=True),
     Column("type", String(50), nullable=False, server_default="form"),
     Column("arch", Text, nullable=False, server_default="<view/>"),
-    Column("inherit_id", UUID(as_uuid=True), ForeignKey("ir_ui_views.id"), nullable=True),
+    Column("inherit_id", UUID(as_uuid=True), ForeignKey("base_ui_views.id"), nullable=True),
     Column("priority", Integer, server_default="16"),
     Column("active", Boolean, server_default="true"),
     Column("module", String(100)),
 )
 
-ir_attachments_table = Table(
-    "ir_attachments",
+base_attachments_table = Table(
+    "base_attachments",
     metadata,
     *make_base_columns(),
     Column("name", String(255), nullable=False),
@@ -303,8 +271,8 @@ ir_attachments_table = Table(
     Column("description", Text),
 )
 
-ir_audit_log_table = Table(
-    "ir_audit_log",
+base_audit_log_table = Table(
+    "base_audit_log",
     metadata,
     *make_system_columns(),
     Column("tenant_id", UUID(as_uuid=True), nullable=True, index=True),
@@ -321,8 +289,8 @@ ir_audit_log_table = Table(
     Column("metadata", JSON, nullable=False, server_default="{}"),
 )
 
-ir_outbox_table = Table(
-    "ir_outbox",
+base_outbox_table = Table(
+    "base_outbox",
     metadata,
     *make_system_columns(),
     Column("tenant_id", UUID(as_uuid=True), nullable=True, index=True),
@@ -337,8 +305,8 @@ ir_outbox_table = Table(
     Column("last_error", Text, nullable=True),
 )
 
-ir_webhooks_table = Table(
-    "ir_webhooks",
+base_webhooks_table = Table(
+    "base_webhooks",
     metadata,
     *make_base_columns(),
     Column("name", String(255), nullable=False),
@@ -363,8 +331,8 @@ ir_webhooks_table = Table(
 
 # AI BYOK credentials. `secret_encrypted` is Fernet ciphertext.
 # A unique constraint on (tenant_id, provider) is created in the migration.
-ir_ai_credentials_table = Table(
-    "ir_ai_credentials",
+base_ai_credentials_table = Table(
+    "base_ai_credentials",
     metadata,
     *make_system_columns(),
     Column("tenant_id", UUID(as_uuid=True), nullable=True, index=True),
@@ -381,8 +349,8 @@ ir_ai_credentials_table = Table(
 # extension is installed (see migrations); we declare it as `Text` here for
 # environments that don't have pgvector loaded yet — production migration
 # upgrades it to `vector(N)` with an HNSW index.
-ir_embeddings_table = Table(
-    "ir_embeddings",
+base_embeddings_table = Table(
+    "base_embeddings",
     metadata,
     *make_system_columns(),
     Column("tenant_id", UUID(as_uuid=True), nullable=True, index=True),
@@ -394,6 +362,42 @@ ir_embeddings_table = Table(
     Column("vector", Text, nullable=True),
 )
 
+base_agents_table = Table(
+    "base_agents",
+    metadata,
+    *make_base_columns(),
+    Column("slug", String(100), nullable=False),
+    Column("name", String(255), nullable=False),
+    Column("module_scope", String(100), nullable=False, server_default="*"),
+    Column("system_prompt", Text, nullable=False, server_default=""),
+    Column("allowed_models", JSON, nullable=False, server_default="[]"),
+    Column("allowed_actions", JSON, nullable=False, server_default="[]"),
+    Column("provider", String(50), nullable=True),
+    Column("model_default", String(255), nullable=True),
+    Column("is_system", Boolean, nullable=False, server_default="false"),
+    Column("can_delegate", Boolean, nullable=False, server_default="false"),
+    Column("allowed_delegate_slugs", JSON, nullable=False, server_default="[]"),
+    Column("schedule_interval_minutes", Integer, nullable=True),
+    Column("schedule_prompt", Text, nullable=False, server_default=""),
+    Column("schedule_last_run_at", DateTime(timezone=True), nullable=True),
+)
+
+base_agent_runs_table = Table(
+    "base_agent_runs",
+    metadata,
+    *make_base_columns(),
+    Column("agent_id", UUID(as_uuid=True), ForeignKey("base_agents.id"), nullable=False, index=True),
+    Column("parent_run_id", UUID(as_uuid=True), ForeignKey("base_agent_runs.id"), nullable=True, index=True),
+    Column("depth", Integer, nullable=False, server_default="0"),
+    Column("triggered_by_user_id", UUID(as_uuid=True), nullable=True, index=True),
+    Column("input_prompt", Text, nullable=False, server_default=""),
+    Column("status", String(32), nullable=False, server_default="pending"),
+    Column("output_text", Text, nullable=True),
+    Column("tool_trace", JSON, nullable=False, server_default="[]"),
+    Column("tokens_used", Integer, nullable=False, server_default="0"),
+    Column("error_message", Text, nullable=True),
+)
+
 
 # ---------------------------------------------------------------------------
 # Register imperative mappings
@@ -403,43 +407,43 @@ def setup() -> None:
     """Called by ModuleRegistry during module load."""
     register_mapping(Tenant, tenants_table)
     register_mapping(Company, companies_table)
-    register_mapping(Partner, partners_table)
     register_mapping(User, users_table)
-    register_mapping(IrModel, ir_models_table)
-    register_mapping(IrModelField, ir_model_fields_table)
-    register_mapping(IrModelAccess, ir_model_access_table)
-    register_mapping(IrRule, ir_rules_table)
-    register_mapping(IrUiMenu, ir_ui_menus_table)
-    register_mapping(IrActionWindow, ir_action_windows_table)
-    register_mapping(IrActionServer, ir_action_servers_table)
-    register_mapping(IrSequence, ir_sequences_table)
-    register_mapping(IrConfigParam, ir_config_params_table)
-    register_mapping(IrCron, ir_crons_table)
-    register_mapping(IrMailTemplate, ir_mail_templates_table)
-    register_mapping(IrAttachment, ir_attachments_table)
-    register_mapping(IrUiView, ir_ui_views_table)
-    register_mapping(IrAuditLog, ir_audit_log_table)
-    register_mapping(IrOutbox, ir_outbox_table)
-    register_mapping(IrWebhook, ir_webhooks_table)
-    register_mapping(IrAiCredential, ir_ai_credentials_table)
-    register_mapping(IrEmbedding, ir_embeddings_table)
+    register_mapping(RegistryModel, base_models_table)
+    register_mapping(RegistryModelField, base_model_fields_table)
+    register_mapping(Role, base_roles_table)
+    register_mapping(ModelAccess, base_model_access_table)
+    register_mapping(RecordRule, base_rules_table)
+    register_mapping(UiMenu, base_ui_menus_table)
+    register_mapping(ConfigParam, base_config_params_table)
+    register_mapping(UiTranslation, base_ui_translations_table)
+    register_mapping(MailTemplate, base_mail_templates_table)
+    register_mapping(Attachment, base_attachments_table)
+    register_mapping(UiView, base_ui_views_table)
+    register_mapping(AuditLog, base_audit_log_table)
+    register_mapping(Outbox, base_outbox_table)
+    register_mapping(Webhook, base_webhooks_table)
+    register_mapping(AiCredential, base_ai_credentials_table)
+    register_mapping(EmbeddingRecord, base_embeddings_table)
+    register_mapping(Agent, base_agents_table)
+    register_mapping(AgentRun, base_agent_runs_table)
 
     _register_auto_crud()
 
 
 def _register_auto_crud() -> None:
     from modules.base.controller.repositories import (
+        AgentRepository,
+        AgentRunRepository,
         CompanyRepository,
-        IrConfigParamRepository,
-        IrCronRepository,
-        IrModelAccessRepository,
-        IrModelFieldRepository,
-        IrModelRepository,
-        IrRuleRepository,
-        IrSequenceRepository,
-        IrUiMenuRepository,
-        IrUiViewRepository,
-        PartnerRepository,
+        ConfigParamRepository,
+        UiTranslationRepository,
+        ModelAccessRepository,
+        RoleRepository,
+        RegistryModelFieldRepository,
+        RegistryModelRepository,
+        RecordRuleRepository,
+        UiMenuRepository,
+        UiViewRepository,
         TenantRepository,
         UserRepository,
     )
@@ -448,25 +452,27 @@ def _register_auto_crud() -> None:
                    schemas.TenantRead, schemas.TenantWrite)
     register_model("base.company", Company, CompanyRepository, companies_table,
                    schemas.CompanyRead, schemas.CompanyWrite)
-    register_model("base.partner", Partner, PartnerRepository, partners_table,
-                   schemas.PartnerRead, schemas.PartnerWrite)
     register_model("base.user", User, UserRepository, users_table,
                    schemas.UserRead, schemas.UserWrite)
-    register_model("base.ir-model", IrModel, IrModelRepository, ir_models_table,
-                   schemas.IrModelRead, schemas.IrModelWrite)
-    register_model("base.ir-model-field", IrModelField, IrModelFieldRepository,
-                   ir_model_fields_table, schemas.IrModelFieldRead, schemas.IrModelFieldWrite)
-    register_model("base.ir-model-access", IrModelAccess, IrModelAccessRepository,
-                   ir_model_access_table, schemas.IrModelAccessRead, schemas.IrModelAccessWrite)
-    register_model("base.ir-rule", IrRule, IrRuleRepository, ir_rules_table,
-                   schemas.IrRuleRead, schemas.IrRuleWrite)
-    register_model("base.ir-ui-menu", IrUiMenu, IrUiMenuRepository, ir_ui_menus_table,
-                   schemas.IrUiMenuRead, schemas.IrUiMenuWrite)
-    register_model("base.ir-sequence", IrSequence, IrSequenceRepository, ir_sequences_table,
-                   schemas.IrSequenceRead, schemas.IrSequenceWrite)
-    register_model("base.ir-config-param", IrConfigParam, IrConfigParamRepository,
-                   ir_config_params_table, schemas.IrConfigParamRead, schemas.IrConfigParamWrite)
-    register_model("base.ir-cron", IrCron, IrCronRepository, ir_crons_table,
-                   schemas.IrCronRead, schemas.IrCronWrite)
-    register_model("base.ir-ui-view", IrUiView, IrUiViewRepository, ir_ui_views_table,
-                   schemas.IrUiViewRead, schemas.IrUiViewWrite)
+    register_model("base.registry-model", RegistryModel, RegistryModelRepository, base_models_table,
+                   schemas.RegistryModelRead, schemas.RegistryModelWrite)
+    register_model("base.registry-model-field", RegistryModelField, RegistryModelFieldRepository,
+                   base_model_fields_table, schemas.RegistryModelFieldRead, schemas.RegistryModelFieldWrite)
+    register_model("base.role", Role, RoleRepository, base_roles_table,
+                   schemas.RoleRead, schemas.RoleWrite)
+    register_model("base.model-access", ModelAccess, ModelAccessRepository,
+                   base_model_access_table, schemas.ModelAccessRead, schemas.ModelAccessWrite)
+    register_model("base.record-rule", RecordRule, RecordRuleRepository, base_rules_table,
+                   schemas.RecordRuleRead, schemas.RecordRuleWrite)
+    register_model("base.ui-menu", UiMenu, UiMenuRepository, base_ui_menus_table,
+                   schemas.UiMenuRead, schemas.UiMenuWrite)
+    register_model("base.config-param", ConfigParam, ConfigParamRepository,
+                   base_config_params_table, schemas.ConfigParamRead, schemas.ConfigParamWrite)
+    register_model("base.ui-translation", UiTranslation, UiTranslationRepository,
+                   base_ui_translations_table, schemas.UiTranslationRead, schemas.UiTranslationWrite)
+    register_model("base.ui-view", UiView, UiViewRepository, base_ui_views_table,
+                   schemas.UiViewRead, schemas.UiViewWrite)
+    register_model("base.agent", Agent, AgentRepository, base_agents_table,
+                   schemas.AgentRead, schemas.AgentWrite)
+    register_model("base.agent-run", AgentRun, AgentRunRepository, base_agent_runs_table,
+                   schemas.AgentRunRead, schemas.AgentRunWrite)

@@ -104,6 +104,22 @@ Without `proxy_buffering off`, events get glued in the buffer until disconnect.
 - Use `worker_rlimit_nofile` and `LimitNOFILE` accordingly in compose.
 - Frontend reconnects with exponential backoff on disconnect.
 
+## Multi-tab (admin UI)
+
+Browsers do **not** open one SSE stream per tab. `admin-ui/src/lib/realtimeHub.ts`:
+
+1. **Leader election** — one tab per origin holds the sole `EventSource` (localStorage heartbeat).
+2. **BroadcastChannel** — the leader fan-outs events to other tabs; followers never connect.
+3. **Topic union** — the leader multiplexes every tab’s topics on one
+   `GET /api/realtime/subscribe?topic=…&topic=…` URL.
+
+A user with 150 tabs therefore keeps **one** idle SSE connection (plus Redis
+fan-out on the server), not 150. List views use `useRealtimeList`; pages that
+need many topics (audit log) use `useRealtimeTopics`.
+
+If `BroadcastChannel` is unavailable, the hub falls back to one connection per
+tab (legacy behaviour).
+
 ## RBAC enforcement
 
 - On subscribe, the topic is validated against `BaseRepository._can_read()`.

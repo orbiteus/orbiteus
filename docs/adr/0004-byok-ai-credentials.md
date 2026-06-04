@@ -11,7 +11,7 @@ Keys must be encrypted at rest and inaccessible from logs or audit dumps.
 
 ## Decision
 
-Provider credentials live in `ir_ai_credential` (one row per tenant ×
+Provider credentials live in `base_ai_credential` (one row per tenant ×
 provider), encrypted with Fernet using `AI_SECRET_KEY` from environment.
 Endpoints `POST /api/ai/credentials` (set + ping), `GET` (list without
 secrets), `DELETE` (remove).

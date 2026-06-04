@@ -2,7 +2,7 @@
 
 Storage layout
 --------------
-The authoritative store stays in Postgres (`ir_model_access`, `ir_rules`).
+The authoritative store stays in Postgres (`base_model_access`, `base_rules`).
 Cache lives in **Redis** with a process-local L1 mirror so the hot path
 on every request stays in-memory:
 
@@ -10,13 +10,13 @@ on every request stays in-memory:
      ↑ refreshed by pub/sub listener
     L2  (Redis hashes)      ← `rbac:access`, `rbac:rules`, `rbac:version`
      ↑ written by `reload_access_cache`
-    DB  (ir_model_access, ir_rules)
+    DB  (base_model_access, base_rules)
 
 Cross-replica invalidation
 --------------------------
 Every replica subscribes to the `rbac.invalidate` channel at startup
 (`start_invalidator()`). When any replica calls `reload_access_cache`
-(after a YAML/seed reload or an `ir_model_access` mutation) it bumps
+(after a YAML/seed reload or an `base_model_access` mutation) it bumps
 `rbac:version` and publishes the new value on `rbac.invalidate`. Other
 replicas refresh their L1 from Redis on receipt — typically <50ms.
 
@@ -92,6 +92,11 @@ def _serialize_rule(rule: dict[str, Any]) -> dict[str, Any]:
 # Public API
 # ---------------------------------------------------------------------------
 
+def get_rbac_version() -> int:
+    """Return the in-process RBAC cache version (mirrors Redis `rbac:version`)."""
+    return _l1_version
+
+
 async def reload_access_cache(
     access_entries: list[dict[str, Any]],
     rule_entries: list[dict[str, Any]],
@@ -101,7 +106,7 @@ async def reload_access_cache(
 
     Called by:
       * application lifespan startup (after `seed_security_to_db`)
-      * EventBus subscriber when `ir_model_access` / `ir_rules` mutates
+      * EventBus subscriber when `base_model_access` / `base_rules` mutates
     """
     global _l1_version
 
@@ -231,9 +236,16 @@ def apply_record_rules(
 
         domain = rule.get("domain", [])
         for triple in domain:
-            if not (isinstance(triple, (list, tuple)) and len(triple) == 3):
+            if isinstance(triple, dict):
+                field_name = triple.get("field")
+                operator = triple.get("op", "=")
+                value = triple.get("value")
+            elif isinstance(triple, (list, tuple)) and len(triple) == 3:
+                field_name, operator, value = triple
+            else:
                 continue
-            field_name, operator, value = triple
+            if not field_name:
+                continue
             col = table.c.get(field_name)
             if col is None:
                 continue
@@ -342,7 +354,7 @@ _REGISTERED = False
 
 
 def register_rbac_invalidator() -> None:
-    """Wire the EventBus so any mutation of `ir_model_access` / `ir_rules`
+    """Wire the EventBus so any mutation of `base_model_access` / `base_rules`
     triggers a fresh reload of the cache (with cross-replica fan-out via
     pub/sub).
 
@@ -355,7 +367,7 @@ def register_rbac_invalidator() -> None:
 
     async def _on_record(payload: dict[str, Any]) -> None:
         model = payload.get("model")
-        if model not in ("base.ir-model-access", "base.ir-rule"):
+        if model not in ("base.model-access", "base.record-rule"):
             return
         try:
             await _reload_from_db()
@@ -369,19 +381,19 @@ def register_rbac_invalidator() -> None:
 
 
 async def _reload_from_db() -> None:
-    """Pull `ir_model_access` + `ir_rules` from Postgres and refresh both
+    """Pull `base_model_access` + `base_rules` from Postgres and refresh both
     Redis and L1 (which also publishes invalidation)."""
     from sqlalchemy import select
 
-    from modules.base.model.mapping import ir_model_access_table, ir_rules_table
+    from modules.base.model.mapping import base_model_access_table, base_rules_table
     from orbiteus_core.db import AsyncSessionFactory
 
     async with AsyncSessionFactory() as session:
         access_rows = (
-            await session.execute(select(ir_model_access_table))
+            await session.execute(select(base_model_access_table))
         ).mappings().all()
         rule_rows = (
-            await session.execute(select(ir_rules_table))
+            await session.execute(select(base_rules_table))
         ).mappings().all()
 
     access_dicts = [
@@ -400,11 +412,9 @@ async def _reload_from_db() -> None:
         if isinstance(val, list):
             return val
         if isinstance(val, str):
-            try:
-                parsed = json.loads(val)
-                return parsed if isinstance(parsed, list) else []
-            except (json.JSONDecodeError, TypeError):
-                return []
+            from orbiteus_core.security_loader import normalize_domain
+
+            return normalize_domain(val)
         return []
 
     rule_dicts = [

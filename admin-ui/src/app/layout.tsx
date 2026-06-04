@@ -2,82 +2,35 @@ import type { Metadata } from "next";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
-import { ColorSchemeScript, MantineProvider, createTheme } from "@mantine/core";
-import { DatesProvider } from "@mantine/dates";
+import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import AppShellLayout from "@/components/AppShellLayout";
+import AdminI18nShell from "@/components/AdminI18nShell";
+import { QueryProvider } from "@/components/QueryProvider";
 import { BrandingProvider } from "@/lib/branding";
 import { AuthProvider } from "@/lib/auth";
+import { orbiteusTheme } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME ?? "Orbiteus",
   description: "Composable ERP Engine",
 };
 
-const theme = createTheme({
-  primaryColor: "blue",
-  fontFamily: "Inter, system-ui, sans-serif",
-  defaultRadius: "sm",
-  defaultGradient: { from: "blue.6", to: "cyan.5", deg: 120 },
-  colors: {
-    dark: [
-      "#C1C2C5",
-      "#A6A7AB",
-      "#909296",
-      "#5c5f66",
-      "#373A40",
-      "#2C2E33",
-      "#25262b",
-      "#1A1B1E",
-      "#141517",
-      "#101113",
-    ],
-  },
-  headings: {
-    fontFamily: "Inter, system-ui, sans-serif",
-  },
-  components: {
-    Paper: {
-      defaultProps: { radius: "md", withBorder: true, p: "md" },
-      styles: {
-        root: {
-          borderColor: "var(--mantine-color-default-border)",
-          background: "var(--mantine-color-body)",
-          boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
-        },
-      },
-    },
-    Button: {
-      defaultProps: { radius: "md", fw: 600 },
-    },
-    TextInput: {
-      defaultProps: { radius: "md" },
-    },
-    Table: {
-      defaultProps: { verticalSpacing: "sm", horizontalSpacing: "md" },
-    },
-    SegmentedControl: {
-      defaultProps: { radius: "md" },
-    },
-  },
-});
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <ColorSchemeScript defaultColorScheme="light" />
-      </head>
+    <html lang="en" data-mantine-color-scheme="light" suppressHydrationWarning>
       <body>
-        <MantineProvider theme={theme} defaultColorScheme="light">
-          <DatesProvider settings={{ locale: "en", firstDayOfWeek: 1 }}>
-            <Notifications />
+        <MantineProvider theme={orbiteusTheme} defaultColorScheme="light">
+          <Notifications />
+          <QueryProvider>
             <BrandingProvider>
               <AuthProvider>
-                <AppShellLayout>{children}</AppShellLayout>
+                <AdminI18nShell>
+                  <AppShellLayout>{children}</AppShellLayout>
+                </AdminI18nShell>
               </AuthProvider>
             </BrandingProvider>
-          </DatesProvider>
+          </QueryProvider>
         </MantineProvider>
       </body>
     </html>

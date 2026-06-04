@@ -20,9 +20,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # Rate limit defaults (per minute). Override in production via env.
-    rate_limit_tenant_per_minute: int = 1000
-    rate_limit_user_per_minute: int = 60
-    rate_limit_ip_per_minute: int = 120
+    # Interactive admin UI: authenticated GET/list/SSE traffic is not limited
+    # (see rate_limit_middleware). These caps apply to mutations + anonymous IP.
+    rate_limit_tenant_per_minute: int = 5000
+    rate_limit_user_mutations_per_minute: int = 600
+    rate_limit_user_per_minute: int = 120  # expensive authenticated GETs only
+    rate_limit_ip_per_minute: int = 300
     rate_limit_anonymous_per_minute: int = 30
 
     # Password reset flow (DoD §3.4).
@@ -46,6 +49,15 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_use_tls: bool = True
     smtp_from_address: str = "no-reply@orbiteus.local"
+
+    # Attachment filestore (local filesystem by default).
+    attachment_storage: str = "local"
+    attachment_storage_path: str = "./data/attachments"
+    attachment_max_bytes: int = 52_428_800  # 50 MiB
+
+    # Demo dataset (development only). See orbiteus_core/demo_seed.py.
+    seed_demo_data: bool = False
+    reset_demo_data: bool = False
 
     # AI provider key encryption (Fernet) — used in PR 8.
     ai_secret_key: str = "change-me-with-fernet-key"

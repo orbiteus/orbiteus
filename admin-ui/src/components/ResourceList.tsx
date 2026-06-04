@@ -1,22 +1,27 @@
 "use client";
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { FieldMeta } from "@/lib/api";
+import { prefetchResourceDetail, useResourceList } from "@/lib/queries/resources";
 import { StatusBadge } from "@/components/widgets/StatusBadge";
+import { LastLoginCell } from "@/components/widgets/LastLoginCell";
 import { displayMany2oneCell, formatListDate } from "@/lib/formatters";
+import { useI18n, DAYJS_LOCALE, resolveDayjsLocale } from "@orbiteus/i18n";
 import { MonetaryCell } from "@/components/widgets/MonetaryField";
 import EmptyState from "@/components/EmptyState";
-import SkeletonRows from "@/components/SkeletonRows";
+import RecordRowSkeleton from "@/components/RecordRowSkeleton";
+import RecordRowList from "@/components/RecordRowList";
 import Link from "next/link";
 import {
-  Title, Text, Button, Table, Alert, Group, Stack,
-  ActionIcon, Modal, Pagination, TextInput, Paper, ScrollArea, Badge,
+  Title, Text, Button, Alert, Group, Stack,
+  Modal, Pagination, TextInput, Paper,
 } from "@mantine/core";
 import {
-  IconPlus, IconAlertCircle, IconTrash, IconPencil,
-  IconSearch, IconSortAscending, IconSortDescending, IconArrowsSort,
+  IconPlus, IconAlertCircle, IconTrash, IconSearch,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
-import { fetchList, deleteRecord } from "@/lib/api";
+import { extractApiError } from "@/lib/api";
+import { useDeleteRecord } from "@/lib/queries/mutations";
 import { useRealtimeList } from "@/lib/realtime";
 
 interface Column {
@@ -30,16 +35,21 @@ interface Props {
   title: string;
   resource: string;
   columns: Column[];
-  /** Schema field metadata from ui-config — drives badge / monetary / many2one / date cells */
   fieldMeta?: FieldMeta[];
   createHref?: string;
   editHref?: (id: string) => string;
   pageSize?: number;
+  /** When a page header already shows the title, hide the duplicate here. */
+  showTitle?: boolean;
+  /** Many2one fields to prefetch on row hover (form expand). */
+  prefetchExpandFields?: string[];
 }
 
 type SortDir = "asc" | "desc" | null;
 
 function useEnhancedColumns(columns: Column[], fieldMeta?: FieldMeta[]): Column[] {
+  const { locale, t } = useI18n();
+  const dayjsLocale = resolveDayjsLocale(locale, DAYJS_LOCALE);
   return useMemo(() => {
     if (!fieldMeta?.length) return columns;
     const meta = new Map(fieldMeta.map((f) => [f.name, f]));
@@ -50,6 +60,14 @@ function useEnhancedColumns(columns: Column[], fieldMeta?: FieldMeta[]): Column[
         return {
           ...col,
           render: (v: unknown) => <StatusBadge value={String(v ?? "")} />,
+        };
+      }
+      if (col.widget === "last_login") {
+        return {
+          ...col,
+          render: (_v: unknown, row: Record<string, unknown>) => (
+            <LastLoginCell lastLogin={row.last_login} device={row.last_login_device} />
+          ),
         };
       }
       if (m?.type === "monetary") {
@@ -67,35 +85,52 @@ function useEnhancedColumns(columns: Column[], fieldMeta?: FieldMeta[]): Column[
         };
       }
       if (m?.type === "date" || col.key.endsWith("_date") || col.key === "create_date") {
-        return { ...col, render: (v: unknown) => formatListDate(v) };
+        return { ...col, render: (v: unknown) => formatListDate(v, dayjsLocale) };
       }
       return col;
     });
-  }, [columns, fieldMeta]);
+  }, [columns, fieldMeta, dayjsLocale, t]);
+}
+
+function visibleListColumns(columns: Column[]): Column[] {
+  const hidden = new Set([
+    "id", "tenant_id", "company_id", "created_by", "updated_by",
+    "password", "password_hash", "recovery_codes_hashed",
+  ]);
+  return columns.filter((col) => !hidden.has(col.key)).slice(0, 5);
 }
 
 export default function ResourceList({
-  title, resource, columns, fieldMeta, createHref, editHref, pageSize = 50,
+  title,
+  resource,
+  columns,
+  fieldMeta,
+  createHref,
+  editHref,
+  pageSize = 50,
+  showTitle = true,
+  prefetchExpandFields = [],
 }: Props) {
+  const qc = useQueryClient();
+  const { t } = useI18n();
   const displayColumns = useEnhancedColumns(columns, fieldMeta);
-  const [items, setItems] = useState<Record<string, unknown>[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const listColumns = useMemo(
+    () => visibleListColumns(displayColumns),
+    [displayColumns],
+  );
 
-  // Search state
+  const [page, setPage] = useState(1);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const deleteMutation = useDeleteRecord(resource);
+  const deleting = deleteMutation.isPending;
+
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sort state
   const [orderBy, setOrderBy] = useState<string | null>(null);
   const [orderDir, setOrderDir] = useState<SortDir>(null);
 
-  // Debounced search handler
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -105,52 +140,56 @@ export default function ResourceList({
     }, 300);
   }, []);
 
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
 
-  // Auto-`?expand=...` for every many2one column we know about — saves
-  // the consumer wiring it manually and turns FK UUIDs into readable
-  // labels (e.g. "Acme Corp" instead of "06548faf-..."). DoD §9.4.
   const expandFields = useMemo(() => {
     if (!fieldMeta?.length) return "";
-    const m2o = displayColumns
+    const m2o = listColumns
       .map((col) => fieldMeta.find((f) => f.name === col.key))
       .filter((f) => f?.type === "many2one")
       .map((f) => f!.name);
     return m2o.join(",");
-  }, [displayColumns, fieldMeta]);
+  }, [listColumns, fieldMeta]);
 
-  // Fetch data when resource, page, search, sort, or refresh signal changes
-  const [refreshTick, setRefreshTick] = useState(0);
-  useEffect(() => {
-    setLoading(true);
+  const listParams = useMemo(() => {
     const params: Record<string, unknown> = {
       limit: pageSize,
       offset: (page - 1) * pageSize,
     };
-    if (searchQuery) params.name__contains = searchQuery;
+    if (searchQuery) {
+      const searchField = listColumns[0]?.key ?? "name";
+      params[`${searchField}__contains`] = searchQuery;
+    }
     if (orderBy && orderDir) {
       params.order_by = orderBy;
       params.order_dir = orderDir;
     }
     if (expandFields) params.expand = expandFields;
-    fetchList(resource, params)
-      .then((d) => { setItems(d.items ?? []); setTotal(d.total ?? 0); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [resource, page, searchQuery, orderBy, orderDir, pageSize, refreshTick, expandFields]);
+    return params;
+  }, [page, pageSize, searchQuery, orderBy, orderDir, expandFields, listColumns]);
 
-  // Realtime: when any other tab / browser mutates this list under the
-  // same tenant, the SSE backplane emits `record.created/updated/deleted`
-  // and we re-fetch the current page. Throttled via a single tick — we
-  // never need more than one refetch per burst of events.
-  useRealtimeList(resource, () => setRefreshTick((t) => t + 1));
+  const listQuery = useResourceList(resource, listParams);
+  const items = listQuery.data?.items ?? [];
+  const total = listQuery.data?.total ?? 0;
+  const loading = listQuery.isLoading && !listQuery.data;
+  const error = listQuery.isError
+    ? (listQuery.error instanceof Error ? listQuery.error.message : t("request.failed"))
+    : "";
 
-  // Client-side filtering: filter items where any column value contains search text
+  useRealtimeList(resource, () => {
+    void qc.invalidateQueries({ queryKey: ["resource", "list", resource] });
+  });
+
+  const handlePrefetchRow = useCallback(
+    (id: string) => {
+      if (!prefetchExpandFields.length) return;
+      void prefetchResourceDetail(qc, resource, id, prefetchExpandFields);
+    },
+    [qc, resource, prefetchExpandFields],
+  );
+
   const filteredItems = useMemo(() => {
     if (!searchQuery) return items;
     const q = searchQuery.toLowerCase();
@@ -162,7 +201,6 @@ export default function ResourceList({
     );
   }, [items, searchQuery, displayColumns]);
 
-  // Column sort toggle: asc -> desc -> no sort
   function handleSort(columnKey: string) {
     if (orderBy !== columnKey) {
       setOrderBy(columnKey);
@@ -176,29 +214,18 @@ export default function ResourceList({
     setPage(1);
   }
 
-  // Sort indicator icon for a column
-  function renderSortIcon(columnKey: string) {
-    if (orderBy !== columnKey) {
-      return <IconArrowsSort size={14} style={{ opacity: 0.3 }} />;
-    }
-    if (orderDir === "asc") {
-      return <IconSortAscending size={14} />;
-    }
-    return <IconSortDescending size={14} />;
-  }
-
   async function handleDelete() {
     if (!deleteId) return;
-    setDeleting(true);
     try {
-      await deleteRecord(resource, deleteId);
-      setItems((prev) => prev.filter((r) => String(r.id) !== deleteId));
-      setTotal((t) => t - 1);
-      notifications.show({ title: "Deleted", message: "Record has been deleted.", color: "orange" });
+      await deleteMutation.mutateAsync(deleteId);
+      notifications.show({ title: t("form.deleted"), message: t("list.deleted"), color: "orange" });
     } catch (e: unknown) {
-      notifications.show({ title: "Error", message: (e as { message: string }).message, color: "red" });
+      notifications.show({
+        title: t("common.error"),
+        message: extractApiError(e, t("form.deleteFailed")),
+        color: "red",
+      });
     } finally {
-      setDeleting(false);
       setDeleteId(null);
     }
   }
@@ -207,143 +234,76 @@ export default function ResourceList({
 
   return (
     <>
-      <Stack gap="md">
-        <Paper>
-          <Group justify="space-between" align="flex-end" mb="sm">
-            <Stack gap={2}>
-              <Title order={3}>{title}</Title>
-              {!loading && (
-                <Group gap="xs">
-                  <Badge variant="light" color="blue">{total}</Badge>
-                  <Text size="sm" c="dimmed">records</Text>
-                </Group>
-              )}
-            </Stack>
+      <Stack gap="sm">
+        {showTitle && (
+          <Title order={3} fw={600}>
+            {title}
+          </Title>
+        )}
+
+        <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
+          <TextInput
+            placeholder={t("list.search")}
+            leftSection={<IconSearch size={16} stroke={1.75} />}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.currentTarget.value)}
+            radius="md"
+            style={{ flex: 1, maxWidth: 380 }}
+          />
+          <Group gap="sm" wrap="nowrap">
+            {!loading && (
+              <Text size="sm" c="dimmed" style={{ whiteSpace: "nowrap" }}>
+                {total} {total === 1 ? t("list.record") : t("list.records")}
+              </Text>
+            )}
             {createHref && (
-              <Button component={Link} href={createHref} leftSection={<IconPlus size={16} />} size="sm">
+              <Button
+                component={Link}
+                href={createHref}
+                leftSection={<IconPlus size={16} />}
+                radius="md"
+              >
                 New
               </Button>
             )}
           </Group>
+        </Group>
 
-          <TextInput
-            placeholder="Search records..."
-            leftSection={<IconSearch size={16} />}
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.currentTarget.value)}
-            size="sm"
-            styles={{
-              input: {
-                background: "var(--mantine-color-body)",
-                borderColor: "var(--mantine-color-default-border)",
-                color: "var(--mantine-color-text)",
-              },
-            }}
-          />
-        </Paper>
-
-        {error && <Alert icon={<IconAlertCircle size={16} />} color="red" title="Error">{error}</Alert>}
+        {error && <Alert icon={<IconAlertCircle size={16} />} color="red" title={t("common.error")}>{error}</Alert>}
 
         {!error && (
           <>
-            <Paper>
-              <ScrollArea>
-                <Table
-                  striped
-                  highlightOnHover
-                  withTableBorder
-                  withColumnBorders
-                  styles={{
-                    table: { background: "var(--mantine-color-body)", minWidth: 860 },
-                    thead: { background: "var(--mantine-color-default-hover)" },
-                    th: {
-                      color: "var(--mantine-color-gray-7)",
-                      fontWeight: 600,
-                      fontSize: 12,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    },
-                    td: { color: "var(--mantine-color-text)" },
-                  }}
-                >
-                  <Table.Thead>
-                    <Table.Tr>
-                      {displayColumns.map((c) => (
-                        <Table.Th
-                          key={c.key}
-                          onClick={() => handleSort(c.key)}
-                          style={{
-                            cursor: "pointer",
-                            userSelect: "none",
-                            ...(orderBy === c.key
-                              ? {
-                                  color: "var(--mantine-color-blue-7)",
-                                  background: "var(--mantine-color-blue-0)",
-                                }
-                              : {}),
-                          }}
-                        >
-                          <Group gap={4} wrap="nowrap">
-                            {c.label}
-                            {renderSortIcon(c.key)}
-                          </Group>
-                        </Table.Th>
-                      ))}
-                      <Table.Th style={{ width: 80 }}></Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {loading ? (
-                      <SkeletonRows
-                        columns={displayColumns.length}
-                        trailingColumns={1}
-                        rows={5}
-                      />
-                    ) : filteredItems.length === 0 ? (
-                      <Table.Tr>
-                        <Table.Td colSpan={displayColumns.length + 1} style={{ background: "transparent" }}>
-                          <EmptyState
-                            title={searchQuery ? "No matching records" : "No records yet"}
-                            description={
-                              searchQuery
-                                ? "Try a different search term, or clear the filter to see everything."
-                                : "Click the button below to create your first record."
-                            }
-                            ctaLabel={createHref ? "New" : undefined}
-                            ctaHref={createHref}
-                          />
-                        </Table.Td>
-                      </Table.Tr>
-                    ) : (
-                      filteredItems.map((row) => (
-                        <Table.Tr key={String(row.id)}>
-                          {displayColumns.map((c) => (
-                            <Table.Td key={c.key}>
-                              {c.render ? c.render(row[c.key], row) : String(row[c.key] ?? "—")}
-                            </Table.Td>
-                          ))}
-                          <Table.Td>
-                            <Group gap={4} wrap="nowrap">
-                              {editHref && (
-                                <ActionIcon component={Link} href={editHref(String(row.id))} variant="light" color="gray" size="sm">
-                                  <IconPencil size={14} />
-                                </ActionIcon>
-                              )}
-                              <ActionIcon variant="light" color="red" size="sm" onClick={() => setDeleteId(String(row.id))}>
-                                <IconTrash size={14} />
-                              </ActionIcon>
-                            </Group>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))
-                    )}
-                  </Table.Tbody>
-                </Table>
-              </ScrollArea>
-            </Paper>
+            {loading ? (
+              <RecordRowSkeleton rows={10} />
+            ) : filteredItems.length === 0 ? (
+              <Paper p="lg" radius="md" withBorder>
+                <EmptyState
+                  title={searchQuery ? t("list.noMatches") : t("list.noRecords")}
+                  description={
+                    searchQuery
+                      ? t("list.noMatchesHint")
+                      : t("list.emptyHint")
+                  }
+                  ctaLabel={createHref ? t("list.new") : undefined}
+                  ctaHref={createHref}
+                  py="md"
+                />
+              </Paper>
+            ) : (
+              <RecordRowList
+                rows={filteredItems}
+                columns={listColumns}
+                editHref={editHref}
+                onDelete={setDeleteId}
+                onRowHover={handlePrefetchRow}
+                orderBy={orderBy}
+                orderDir={orderDir}
+                onSort={handleSort}
+              />
+            )}
 
             {totalPages > 1 && (
-              <Pagination value={page} onChange={setPage} total={totalPages} size="sm"
+              <Pagination value={page} onChange={setPage} total={totalPages}
                 styles={{ root: { justifyContent: "flex-end" } }} />
             )}
           </>
@@ -352,17 +312,15 @@ export default function ResourceList({
 
       <Modal
         opened={Boolean(deleteId)} onClose={() => setDeleteId(null)}
-        title="Confirm delete" size="sm"
-        styles={{
-          content: { background: "var(--mantine-color-body)" },
-          header: { background: "var(--mantine-color-body)" },
-        }}
+        title={t("list.deleteTitle")} size="sm"
       >
         <Stack gap="md">
-          <Text size="sm" c="dimmed">Are you sure you want to delete this record? This action cannot be undone.</Text>
+          <Text size="sm" c="dimmed">{t("list.deleteConfirm")}</Text>
           <Group justify="flex-end">
-            <Button variant="subtle" color="gray" onClick={() => setDeleteId(null)}>Cancel</Button>
-            <Button color="red" loading={deleting} onClick={handleDelete} leftSection={<IconTrash size={16} />}>Delete</Button>
+            <Button variant="subtle" color="gray" onClick={() => setDeleteId(null)}>{t("common.cancel")}</Button>
+            <Button color="red" loading={deleting} onClick={handleDelete} leftSection={<IconTrash size={16} />}>
+              {t("common.delete")}
+            </Button>
           </Group>
         </Stack>
       </Modal>

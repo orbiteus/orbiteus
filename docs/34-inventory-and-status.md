@@ -25,7 +25,7 @@
 | Coverage report (pytest-cov) | DONE | `backend/pyproject.toml` `[tool.coverage.{run,report}]` + `coverage.xml` artifact via `--cov-report=xml` | TOTAL 80% across `orbiteus_core` + `modules` on the canonical `pytest -q --cov` run; per-module thresholds NOT enforced (host-side measurement under-reports the integration paths that actually run inside the backend container) |
 | AutoRouter (5 CRUD endpoints) | DONE | `auto_router.py` | — |
 | ui-config builder | DONE | `ui_config.py` | needs `relation` for many2one |
-| RBAC: `ir_model_access` + `ir_rule` cache | DONE | `security/rbac.py` (Redis L2 + L1 mirror, pub/sub `rbac.invalidate` cross-replica, EventBus auto-reload on `ir_model_access`/`ir_rules` mutations) | tested by `tests/test_rbac_redis.py` (7 cases: Redis persistence, version bump, refresh, closed-fail, superadmin bypass, per-role, pub/sub invalidate <1s) |
+| RBAC: `base_model_access` + `base_rule` cache | DONE | `security/rbac.py` (Redis L2 + L1 mirror, pub/sub `rbac.invalidate` cross-replica, EventBus auto-reload on `base_model_access`/`base_rules` mutations) | tested by `tests/test_rbac_redis.py` (7 cases: Redis persistence, version bump, refresh, closed-fail, superadmin bypass, per-role, pub/sub invalidate <1s) |
 | JWT + bcrypt | DONE | `security/{tokens,passwords,jti,rate_limit}.py` | 15min/7d, jti revocation list, refresh rotation in `/api/auth/refresh` |
 | **httpOnly cookie session (Admin UI)** | DONE | `security/cookies.py`, `security/middleware.py` (cookie fallback), `modules/auth/controller/router.py`, `admin-ui/src/proxy.ts` | ADR-0017; eliminates FOAC at the Edge |
 | **Default tenant + bootstrap admin binding** | DONE | `backend/api.py` (`_seed_default_tenant`, `_seed_superadmin` backfill) | `BOOTSTRAP_ADMIN_TENANT_NAME/SLUG`; backfills legacy `tenant_id IS NULL` admins |
@@ -34,31 +34,32 @@
 | TOTP 2FA + recovery codes | DONE | `security/tokens.py`, `security/recovery_codes.py`, `POST /api/auth/2fa/recovery-codes` | bcrypt-hashed, single-use codes |
 | Password reset flow | DONE | `POST /api/auth/password/{request,reset}` (always-200 + per-email throttle + single-use jti revocation) + `orbiteus_core/mail.py` mailer + `admin-ui/src/app/{forgot-password,reset/[token]}/page.tsx` | `tests/test_password_reset.py` (3 unit + 4 e2e) |
 | AI Action Registry + RapidFuzz | DONE | `ai/{action,registry,resolver,router}.py` | — |
-| **Audit log (`ir_audit_log`)** | DONE | `modules/base/model/{domain,mapping}.py`, migration `a1f3c0e1b002`, central helper `orbiteus_core/audit.py` (actor allow-list + redaction) | mandatory; opt-out via `AUDIT_OPTOUT_MODELS`. CRUD via `BaseRepository` (`actor=user/system`); `actor=ai` from AI tool calls (`ai/router.py`); `actor=user, op=login/login_failed/password_reset_requested/password_reset_completed` from auth flow; `actor=portal` from share-link mutations. Tested by `tests/test_audit_actor_semantics.py` (2 unit + 4 e2e). |
+| **Audit log (`base_audit_log`)** | DONE | `modules/base/model/{domain,mapping}.py`, migration `a1f3c0e1b002`, central helper `orbiteus_core/audit.py` (actor allow-list + redaction) | mandatory; opt-out via `AUDIT_OPTOUT_MODELS`. CRUD via `BaseRepository` (`actor=user/system`); `actor=ai` from AI tool calls (`ai/router.py`); `actor=user, op=login/login_failed/password_reset_requested/password_reset_completed` from auth flow; `actor=portal` from share-link mutations. Tested by `tests/test_audit_actor_semantics.py` (2 unit + 4 e2e). |
 | **EventBus (in-process)** | DONE | `orbiteus_core/events.py` | sync error isolation, decorator subscribe |
-| **Postgres Outbox (`ir_outbox`)** | DONE | `orbiteus_core/outbox.py`, `IrOutbox`, `outbox_dispatcher.py`, migration `b2a4e1c0d003`; drainer in `tasks/outbox_tasks.py` (atomic claim, exp. backoff `60·2^retries` capped at 1h, `MAX_RETRIES` env-tunable, terminal status `dead`) | tested by `tests/test_webhook_delivery.py` happy-path + retry→dead transitions |
-| **Webhooks (`ir_webhooks`)** | DONE | `IrWebhook` + per-model + per-field filters + optional auth header (migration `f6a1b2c3d007`); dispatcher in `outbox_dispatcher.py`; admin UI at `/technical/webhooks`; `POST /api/base/webhooks/{id}/test` for synthetic delivery | HMAC `X-Orbiteus-Signature` unconditional. Tested by `tests/test_webhook_delivery.py` (signed POST + retry→dead-letter on 5xx). |
+| **Postgres Outbox (`base_outbox`)** | DONE | `orbiteus_core/outbox.py`, `Outbox`, `outbox_dispatcher.py`, migration `b2a4e1c0d003`; drainer in `tasks/outbox_tasks.py` (atomic claim, exp. backoff `60·2^retries` capped at 1h, `MAX_RETRIES` env-tunable, terminal status `dead`) | tested by `tests/test_webhook_delivery.py` happy-path + retry→dead transitions |
+| **Webhooks (`base_webhooks`)** | DONE | `Webhook` + per-model + per-field filters + optional auth header (migration `f6a1b2c3d007`); dispatcher in `outbox_dispatcher.py`; admin UI at `/technical/webhooks`; `POST /api/base/webhooks/{id}/test` for synthetic delivery | HMAC `X-Orbiteus-Signature` unconditional. Tested by `tests/test_webhook_delivery.py` (signed POST + retry→dead-letter on 5xx). |
 | **Repository hooks (before/after)** | DONE | `BaseRepository._before_/_after_*` + EventBus | tests in `tests/test_eventbus.py` |
 | **created_by / modified_by columns** | DONE | `make_base_columns`, `BaseModel` | populated in `BaseRepository.create/update/delete` |
-| Backups + restore drill (DoD §13.4 / §13.5) | DONE | `scripts/backup_db.sh` (pg_dump + gzip + optional `aws s3 cp` to an S3-compatible bucket + retention), `scripts/restore_drill.sh` (scratch Postgres + restore + schema sanity check + log line), `deploy/prod/cron/orbiteus-backups` (daily backup 02:00 UTC + weekly drill Sundays 04:00 UTC) | drill executed against the live dev backup; result `pass`, ir_table_count=18, duration ~4s — log evidence in `docs/31-backups-and-dr.md` |
+| Backups + restore drill (DoD §13.4 / §13.5) | DONE | `scripts/backup_db.sh` (pg_dump + gzip + optional `aws s3 cp` to an S3-compatible bucket + retention), `scripts/restore_drill.sh` (scratch Postgres + restore + schema sanity check + log line), `deploy/prod/cron/orbiteus-backups` (daily backup 02:00 UTC + weekly drill Sundays 04:00 UTC) | drill executed against the live dev backup; result `pass`, engine_table_count=18, duration ~4s — log evidence in `docs/31-backups-and-dr.md` |
 | Security headers (DoD §16.3) | DONE | `deploy/prod/nginx.conf` ships `Strict-Transport-Security`, `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `Referrer-Policy strict-origin-when-cross-origin`, `Permissions-Policy`, and a `Content-Security-Policy` allow-list (`default-src 'self'`, `frame-ancestors 'none'`, etc.) | DoD §16.3 met |
 | License audit (DoD §16.4 / §1.7) | DONE | `scripts/generate_licenses.sh` produces `THIRD_PARTY_LICENSES.{python,node}.json` and runs a Python-based no-GPL gate. Allow-list documents the 5 dynamic-link / multi-license deps that are legally compatible with our MIT distribution (sharp-libvips, psycopg2[-binary], num2words, docutils). Wired into `.github/workflows/ci.yml` as the `licenses` job. | DoD §16.4 met |
-| **FK resolution `{field}__name`** | DONE | `orbiteus_core/auto_router.py:_expand_many2one` (opt-in via `?expand=field1,field2`; tenant-scoped + record-rule filtered; first-match display column from `name`/`label`/`title`/`email`/`code`); `admin-ui/src/components/ResourceList.tsx` auto-passes every many2one column to `expand`; `lib/formatters.ts:displayMany2oneCell` consumes `<field>__name` | tested by `tests/test_fk_resolution.py` (4 cases: resolve, no-leak without expand, NULL FK, unknown column ignored) |
-| **Sequences `next_val()`** | STUB | `IrSequence` row only | core wave 2 |
-| **Attachments upload/download** | STUB | `IrAttachment` row only | core wave 3 |
-| **Mail/SMTP send** | PARTIAL | `orbiteus_core/mail.py` (dev-log fallback when `smtp_host=""`, `aiosmtplib` SMTP+STARTTLS in prod); used by `/api/auth/password/{request,reset}`. `IrMailTemplate` table still untouched. | template-driven send is wave 3 |
+| **FK resolution `{field}__name`** | DONE | `orbiteus_core/auto_router.py:_expand_many2one` (list + **GET one** via `?expand=`); `ResourceList` + `ResourceForm` pass many2one fields; `Many2OneField.initialLabel` from expand | ADR-0020; `test_auto_router_get_one_expand_resolves_fk_name` |
+| **TanStack Query (admin-ui)** | DONE | `QueryProvider`, `lib/queries/*`, prefetch on row hover, realtime invalidation | ADR-0020; `queryKeys.test.ts` |
+| **Sequences `next_val()`** | STUB | `DocumentSequence` row only | core wave 2 |
+| **Attachments upload/download** | DONE | `orbiteus_core/storage` (local filestore) + `GET/POST/DELETE /api/base/attachments` + Technical UI `/technical/attachments` + `<AttachmentPanel>` widget | portal upload stores binary; S3 backend post-v1 |
+| **Mail/SMTP send** | PARTIAL | `orbiteus_core/mail.py` (dev-log fallback when `smtp_host=""`, `aiosmtplib` SMTP+STARTTLS in prod); used by `/api/auth/password/{request,reset}`. `MailTemplate` table still untouched. | template-driven send is wave 3 |
 | **Activities/chatter** | MISSING | — | core wave 3 |
 | **Workflow engine (generic)** | MISSING | — (Temporal explicitly excluded by ADR-0015; reach for it only when sagas materialise) | core wave 3 |
 | **Computed fields** | MISSING | — | core wave 3 |
 | **Onchange engine** | MISSING | — | core wave 3 |
 | **Aggregate endpoint** | DONE | `GET /api/base/aggregate` (model + group_by + op ∈ {count,sum,avg,min,max} + measure; tenant-scoped via repository's RBAC + record-rule filters) | tested by `tests/test_aggregate_endpoint.py` (8 cases: count/sum, Decimal→float coercion, op/measure/model/field validation, tenant isolation) — backs Graph view + AI dashboard |
 | **CSV import/export** | MISSING | — | core wave 3 |
-| **Server actions / cron exec** | DONE | `IrCron` rows + Celery Beat schedule (ADR-0015 supersedes prior Temporal stub) | runtime smoke test in next pass |
+| **Server actions / cron exec** | DONE | `ScheduledJob` rows + Celery Beat schedule (ADR-0015 supersedes prior Temporal stub) | runtime smoke test in next pass |
 | **Cache abstraction (Redis)** | DONE | `orbiteus_core/cache.py` (`Cache`, `get_redis`, `get_cache`) | RBAC migration to Redis pending |
 | **Rate limiting** | DONE | `security/rate_limit.py` + `rate_limit_middleware.py` (IP + tenant + user buckets, all per-minute, Redis counters) | tested by `tests/test_rate_limit_buckets.py` (per-user 429, tenant bucket via JWT-decoded claims, IP bucket on anonymous path) |
 | **Realtime (SSE) + Pub/Sub backplane** | DONE | `orbiteus_core/realtime.py` (publisher + topic helpers + SSE stream) and `realtime_router.py` (`/api/realtime/subscribe`); BaseRepository events bridged via Redis Pub/Sub | nginx config already has `proxy_buffering off` (PR 2) |
 | **Realtime — frontend client** | DONE | `admin-ui/src/lib/realtime.ts` (`useRealtimeList`), `admin-ui/src/lib/auth.tsx` (`AuthProvider`/`useAuth`), wired into `ResourceList` so cross-browser edits refresh the list automatically | EventSource over the httpOnly session cookie; reconnects with exponential back-off |
-| **Audit log admin page** | DONE | `admin-ui/src/app/technical/audit-log/page.tsx`, sidebar entry "Log Activity" | reads `GET /api/base/audit-log` with model/actor/operation filters; subscribes to *every* tenant model's list topic so any CRUD/auth event refreshes the page in real time |
+| **Audit log admin page** | DONE | `admin-ui/src/app/technical/audit-log/page.tsx`, sidebar **Technical → Audit log** | reads `GET /api/base/audit-log` with model/actor/operation filters; subscribes to *every* tenant model's list topic so any CRUD/auth event refreshes the page in real time |
 | **PgBouncer integration** | DONE (compose) | `docker-compose.prod.yml`, transaction mode | runtime test in PR 7 |
 | **Gunicorn + UvicornWorker entrypoint** | DONE | `backend/entrypoint.sh`, `Dockerfile.prod` | — |
 | **Migrate one-shot service** | DONE | `entrypoint-migrate.sh`, prod compose `migrate` service | — |
@@ -68,9 +69,9 @@
 | **JSON logging + request_id** | DONE | `orbiteus_core/observability/{logging,middleware}.py` | tenant_id/user_id ctx wired in PR 6 |
 | **Alembic advisory lock helper** | DONE | `orbiteus_core/alembic_lock.py` | applied in next migration |
 | **AI providers (Anthropic/OpenAI/Ollama)** | DONE | `orbiteus_core/ai/providers/{base,anthropic,openai,ollama}.py` (Provider ABC: `ping`/`chat`/`chat_stream`/`embed`; default `chat_stream` falls back to `chat()`; Anthropic native streaming via `messages.stream(...)`) | tested by `tests/test_ai_streaming.py` |
-| **`ir_ai_credential` (BYOK)** | DONE | table + Fernet at-rest + `ai/keys.py` + `POST/GET/DELETE /api/ai/credentials` | unique (tenant, provider) |
+| **`base_ai_credential` (BYOK)** | DONE | table + Fernet at-rest + `ai/keys.py` + `POST/GET/DELETE /api/ai/credentials` | unique (tenant, provider) |
 | **`AIModuleConfig` registry + `ai.py`** | DONE | `orbiteus_core/ai/config.py` (AIRegistry singleton) | per-module declarative AI surface |
-| **pgvector + `ir_embedding`** | DONE | extension + `ir_embeddings` table with `vector(1536)` + HNSW index | embedding refresh via Outbox in next pass |
+| **pgvector + `base_embedding`** | DONE | extension + `base_embeddings` table with `vector(1536)` + HNSW index | outbox-driven refresh via `embedding_dispatcher` + `tasks/embedding_tasks` |
 | **`/api/ai/chat`, `/dashboard`** | DONE | `POST /api/ai/chat` (non-streaming JSON or `?stream=1` SSE with `event: text/tool_call/done/error`) + tool calling + budget guard + PII redaction + tool_call audit; `/dashboard` scaffolded | tested by `tests/test_ai_streaming.py` (default fallback, native streaming, dispatch on `?stream=1`) |
 | **Field-level RBAC** | MISSING | — | post-v1.0 |
 | **Multi-company switch endpoint** | MISSING | — | post-v1.0 |
@@ -81,7 +82,7 @@
 
 | Module | Status | Notes |
 |---|---|---|
-| `base` | DONE (basic) | Users, Companies, Partners, ir_*; needs `ir_audit_log`, `ir_outbox`, `ir_embedding`, `ir_ai_credential` |
+| `base` | DONE (basic) | Users, Companies, Partners, base engine tables; needs `base_audit_log`, `base_outbox`, `base_embedding`, `base_ai_credential` |
 | `auth` | DONE (basic) | login/refresh/2FA; missing share-link issuance, 15min/jti |
 | `crm` | DONE (canonical example) | **Person / Lead / Stage / Team** (PR 9, ADR-0008). `bootstrap.py` seeds default stages + Sales team. Demo `ai.py` declares accessible models, callable actions, embeddings, prompts |
 | `hr`, `project`, `social` | NOT STARTED | docs/spec.md only; mark as `Layer: PRODUCT (sample)` post-v1.0 |
@@ -115,7 +116,7 @@
 | **Toasts (success/error/403/404)** | PARTIAL | scattered | unify in `lib/api.ts` |
 | **Empty states + loading skeletons** | DONE | `components/EmptyState.tsx` (icon + title + dimmed copy + optional CTA), `components/SkeletonRows.tsx` (table skeleton with configurable columns/rows + trailing actions); wired into `ResourceList`, `ResourceKanban`, `ResourceCalendar`, `ResourceGraph` (all show skeletons while loading + EmptyState when no data, with search-aware copy on lists) | covered by build typecheck on touched files |
 | **Polish strings** | LEAK | several files | EN-only cleanup |
-| **Vitest setup** | DONE | `admin-ui/vitest.config.ts` (`*.test.{ts,tsx}` glob), 5 test files / 32 cases covering `viewParser`, `formatters`, `realtime` topic conversion + EventSource shape, `StatusBadge` colour map, `MonetaryField` Intl formatting | DoD §15.2 met |
+| **Vitest setup** | DONE | `admin-ui/vitest.config.ts`, 16+ test files including `queryKeys.test.ts` (TanStack Query keys) | DoD §15.2 |
 | **Playwright E2E** | DONE | `admin-ui/e2e/{critical-path,realtime,cmd-k,audit-log-realtime,webhook-test}.spec.ts` — 5 deterministic scenarios always green (welcome page, login form renders, API login + redirect, crm/person list, /api/health/live), 6 advanced scenarios gated on `E2E_FULL_SUITE=1` (cross-tab realtime, audit-log realtime, Cmd-K palette, create person, kanban, webhook test) | DoD §15.3 met |
 
 ## Portal UI (`portal-ui/`)

@@ -1,0 +1,22 @@
+{
+  "model": "base.user",
+  "type": "form",
+  "sections": [
+    {
+      "title": "Preferences",
+      "fields": ["language", "timezone"]
+    },
+    {
+      "title": "Account",
+      "fields": ["email", "name", "password", "is_active", "is_superadmin"]
+    },
+    {
+      "title": "Access",
+      "fields": ["company_ids", "role_ids"]
+    },
+    {
+      "title": "Security",
+      "fields": ["totp_enabled"]
+    }
+  ]
+}

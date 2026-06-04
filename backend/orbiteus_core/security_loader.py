@@ -1,7 +1,7 @@
 """YAML security loader for Orbiteus modules.
 
 Loads access rights and record rules from security/access.yaml files.
-Seeds them into ir_model_access and ir_rule tables in the database,
+Seeds them into base_model_access and base_rules tables in the database,
 and reloads the in-memory RBAC cache.
 
 YAML format:
@@ -18,17 +18,24 @@ YAML format:
       - name: unique_rule_name
         model: module.model_name
         roles: [module.group_name]
-        domain: "[('field', '=', 'value')]"
+        domain:
+          - field: assigned_user_id
+            op: "="
+            value: current_user
         global: false          # optional, default false
+
+Legacy domain strings (Odoo-style Python tuples) are still accepted on import.
 """
 from __future__ import annotations
 
+import ast
+import json
 import logging
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -54,21 +61,25 @@ class AccessEntry(BaseModel):
         return v.strip()
 
 
+class DomainFilter(BaseModel):
+    field: str
+    op: str = "="
+    value: Any = None
+
+
 class RecordRule(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str
     model: str
-    domain: str = "[]"
+    domain: list[list[Any]] = Field(default_factory=list)
     roles: list[str] = []
-    is_global: bool = False
+    is_global: bool = Field(default=False, validation_alias="global")
 
-    @field_validator("domain")
+    @field_validator("domain", mode="before")
     @classmethod
-    def valid_domain(cls, v: str) -> str:
-        # Basic sanity check — must start with [ and end with ]
-        v = v.strip()
-        if not (v.startswith("[") and v.endswith("]")):
-            raise ValueError(f"Domain must be a list string, got: {v!r}")
-        return v
+    def normalize_domain_field(cls, v: Any) -> list[list[Any]]:
+        return normalize_domain(v)
 
 
 class GroupEntry(BaseModel):
@@ -85,6 +96,26 @@ class SecurityConfig(BaseModel):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+def normalize_domain(value: Any) -> list[list[Any]]:
+    """Normalize YAML domain to list of [field, op, value] triples."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return _parse_domain_string(value)
+    if isinstance(value, list):
+        triples: list[list[Any]] = []
+        for item in value:
+            if isinstance(item, DomainFilter):
+                triples.append([item.field, item.op, item.value])
+            elif isinstance(item, dict):
+                filt = DomainFilter.model_validate(item)
+                triples.append([filt.field, filt.op, filt.value])
+            elif isinstance(item, (list, tuple)) and len(item) == 3:
+                triples.append([item[0], item[1], item[2]])
+        return triples
+    return []
+
 
 def load_yaml_security(yaml_path: Path) -> SecurityConfig:
     """Parse and validate a security/access.yaml file."""
@@ -124,7 +155,7 @@ def apply_security_to_cache(config: SecurityConfig) -> None:
             "name":    rule.name,
             "model_name": rule.model,
             "roles":   rule.roles,
-            "domain":  _parse_domain(rule.domain),
+            "domain":  rule.domain,
             "global":  rule.is_global,
         })
 
@@ -135,18 +166,18 @@ def apply_security_to_cache(config: SecurityConfig) -> None:
 
 
 async def seed_security_to_db(config: SecurityConfig, session, ctx) -> None:
-    """Upsert access rights and record rules into ir_model_access and ir_rules tables.
+    """Upsert access rights and record rules into base_model_access and base_rules tables.
 
     This persists the security config so it survives cache reloads
     and is visible in the Technical Admin UI.
     """
     from modules.base.controller.repositories import (
-        IrModelAccessRepository,
-        IrRuleRepository,
+        ModelAccessRepository,
+        RecordRuleRepository,
     )
 
-    access_repo = IrModelAccessRepository(session, ctx)
-    rule_repo = IrRuleRepository(session, ctx)
+    access_repo = ModelAccessRepository(session, ctx)
+    rule_repo = RecordRuleRepository(session, ctx)
 
     for entry in config.access:
         existing, _ = await access_repo.search(
@@ -166,15 +197,15 @@ async def seed_security_to_db(config: SecurityConfig, session, ctx) -> None:
         else:
             await access_repo.create(data)
 
-    import json
     for rule in config.record_rules:
         existing, _ = await rule_repo.search(
             domain=[("name", "=", rule.name)], limit=1,
         )
+        domain_json = json.dumps(rule.domain, ensure_ascii=False)
         data = {
             "name":         rule.name,
             "model_name":   rule.model,
-            "domain_force": rule.domain,
+            "domain_force": domain_json,
             "roles":        rule.roles,
             "is_global":    rule.is_global,
         }
@@ -193,12 +224,23 @@ async def seed_security_to_db(config: SecurityConfig, session, ctx) -> None:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _parse_domain(domain_str: str) -> list:
-    """Parse domain string to list. Returns [] on failure."""
-    import ast
+def _parse_domain_string(domain_str: str) -> list[list[Any]]:
+    """Parse legacy domain string to triple list. Returns [] on failure."""
+    domain_str = domain_str.strip()
+    if not domain_str or domain_str == "[]":
+        return []
+    if not (domain_str.startswith("[") and domain_str.endswith("]")):
+        logger.warning("Could not parse domain: %r — using []", domain_str)
+        return []
     try:
         result = ast.literal_eval(domain_str)
-        return result if isinstance(result, list) else []
+        if not isinstance(result, list):
+            return []
+        triples: list[list[Any]] = []
+        for item in result:
+            if isinstance(item, (list, tuple)) and len(item) == 3:
+                triples.append([item[0], item[1], item[2]])
+        return triples
     except Exception:
         logger.warning("Could not parse domain: %r — using []", domain_str)
         return []

@@ -43,24 +43,6 @@ class Company(BaseModel):
 
 
 @dataclass
-class Partner(BaseModel):
-    """Contacts/partners – reusable across CRM, HR, Accounting, etc."""
-
-    name: str = ""
-    email: str = ""
-    phone: str = ""
-    mobile: str = ""
-    street: str = ""
-    city: str = ""
-    zip_code: str = ""
-    country_code: str = "PL"
-    is_company: bool = False
-    vat: str = ""
-    parent_partner_id: uuid.UUID | None = None
-    company_name: str = ""
-
-
-@dataclass
 class User(BaseModel):
     """System user – can belong to multiple companies within a tenant."""
 
@@ -69,24 +51,24 @@ class User(BaseModel):
     password_hash: str = ""
     is_active: bool = True
     is_superadmin: bool = False
-    partner_id: uuid.UUID | None = None
     company_ids: list[uuid.UUID] = field(default_factory=list)  # stored as JSONB
-    role_ids: list[uuid.UUID] = field(default_factory=list)     # stored as JSONB
+    role_ids: list[str] = field(default_factory=list)  # RBAC role codes, JSONB
     totp_secret: str | None = None
     totp_enabled: bool = False
     # PR final: bcrypt-hashed list of single-use TOTP recovery codes.
     recovery_codes_hashed: list[str] = field(default_factory=list)
     last_login: datetime | None = None
+    last_login_device: str | None = None
     language: str = "pl"
     timezone: str = "Europe/Warsaw"
 
 
 # ---------------------------------------------------------------------------
-# System / ir_* objects
+# System / engine system objects
 # ---------------------------------------------------------------------------
 
 @dataclass
-class IrModel(SystemModel):
+class RegistryModel(SystemModel):
     """Registered model metadata (populated by ModuleRegistry at startup)."""
 
     model_name: str = ""         # e.g. "crm.customer"
@@ -97,7 +79,7 @@ class IrModel(SystemModel):
 
 
 @dataclass
-class IrModelField(SystemModel):
+class RegistryModelField(SystemModel):
     """Field metadata for registered models."""
 
     model_id: uuid.UUID = field(default_factory=uuid.uuid4)
@@ -113,7 +95,18 @@ class IrModelField(SystemModel):
 
 
 @dataclass
-class IrModelAccess(SystemModel):
+class Role(SystemModel):
+    """Named RBAC group referenced by model access, record rules, and users."""
+
+    name: str = ""
+    code: str = ""  # technical id, e.g. base.group_system
+    description: str | None = None
+    is_system: bool = False
+    active: bool = True
+
+
+@dataclass
+class ModelAccess(SystemModel):
     """RBAC: role → model → CRUD permissions."""
 
     model_name: str = ""
@@ -125,7 +118,7 @@ class IrModelAccess(SystemModel):
 
 
 @dataclass
-class IrRule(SystemModel):
+class RecordRule(SystemModel):
     """Record rules – domain-based row-level filters per role."""
 
     name: str = ""
@@ -140,58 +133,21 @@ class IrRule(SystemModel):
 
 
 @dataclass
-class IrUiMenu(SystemModel):
+class UiMenu(SystemModel):
     """Menu tree – defines Admin UI navigation structure."""
 
     name: str = ""
     parent_id: uuid.UUID | None = None
     sequence: int = 10
     action_id: uuid.UUID | None = None
-    action_type: str = ""        # ir.action.window / ir.action.server / …
+    action_type: str = ""        # base.action.window / base.action.server / …
     icon: str = ""
     groups: list[str] = field(default_factory=list)
     web_icon: str | None = None
 
 
 @dataclass
-class IrActionWindow(SystemModel):
-    """Window action – links a menu item to a model view."""
-
-    name: str = ""
-    model_name: str = ""
-    view_mode: str = "list,form"
-    domain: str = "[]"
-    context: str = "{}"
-    target: str = "current"      # current / new / inline
-
-
-@dataclass
-class IrActionServer(SystemModel):
-    """Server action – executes Python code or triggers a Temporal workflow."""
-
-    name: str = ""
-    model_name: str = ""
-    code: str = ""               # Python snippet or Temporal workflow name
-    action_type: str = "code"    # code / temporal_workflow
-    workflow_name: str | None = None
-
-
-@dataclass
-class IrSequence(SystemModel):
-    """Named sequences for document numbering (INV/2024/00001)."""
-
-    name: str = ""
-    code: str = ""               # e.g. "account.invoice"
-    prefix: str = ""
-    suffix: str = ""
-    padding: int = 5
-    number_next: int = 1
-    number_increment: int = 1
-    use_date_range: bool = False
-
-
-@dataclass
-class IrConfigParam(SystemModel):
+class ConfigParam(SystemModel):
     """System-wide key-value configuration parameters."""
 
     key: str = ""
@@ -201,23 +157,17 @@ class IrConfigParam(SystemModel):
 
 
 @dataclass
-class IrCron(SystemModel):
-    """Scheduled actions – mapped to Temporal schedules."""
+class UiTranslation(SystemModel):
+    """UI message override (module packs + runtime customization)."""
 
-    name: str = ""
-    model_name: str = ""
-    function_name: str = ""      # Python function or Temporal workflow
-    args: str = "[]"
-    kwargs: str = "{}"
-    interval_number: int = 1
-    interval_type: str = "hours"  # minutes / hours / days / weeks / months
-    is_active: bool = True
-    next_call: datetime | None = None
-    temporal_schedule_id: str | None = None
+    lang: str = ""
+    module: str = ""       # contributing module or empty for global
+    msg_key: str = ""      # e.g. common.save, nav.dashboard
+    value: str = ""
 
 
 @dataclass
-class IrMailTemplate(SystemModel):
+class MailTemplate(SystemModel):
     """Email templates using Jinja2."""
 
     name: str = ""
@@ -231,7 +181,7 @@ class IrMailTemplate(SystemModel):
 
 
 @dataclass
-class IrUiView(SystemModel):
+class UiView(SystemModel):
     """UI view definitions – XML arch stored in DB, supports XPath inheritance."""
 
     name: str = ""            # e.g. "crm.customer.form"
@@ -245,7 +195,7 @@ class IrUiView(SystemModel):
 
 
 @dataclass
-class IrAttachment(BaseModel):
+class Attachment(BaseModel):
     """File attachments – linked to any record."""
 
     name: str = ""
@@ -264,7 +214,7 @@ class IrAttachment(BaseModel):
 # ---------------------------------------------------------------------------
 
 @dataclass
-class IrAuditLog(SystemModel):
+class AuditLog(SystemModel):
     """One row per CRUD operation through `BaseRepository`.
 
     See `docs/14-audit.md` for the full policy.
@@ -287,7 +237,7 @@ class IrAuditLog(SystemModel):
 # ---------------------------------------------------------------------------
 
 @dataclass
-class IrOutbox(SystemModel):
+class Outbox(SystemModel):
     """Durable side-effect intent — drained by Celery workers."""
 
     tenant_id: uuid.UUID | None = None
@@ -302,7 +252,7 @@ class IrOutbox(SystemModel):
 
 
 @dataclass
-class IrWebhook(BaseModel):
+class Webhook(BaseModel):
     """Outbound webhook subscriber (Standard-Webhooks-style delivery)."""
 
     name: str = ""
@@ -332,11 +282,11 @@ class IrWebhook(BaseModel):
 # ---------------------------------------------------------------------------
 
 @dataclass
-class IrAiCredential(SystemModel):
+class AiCredential(SystemModel):
     """Per-tenant AI provider credential (BYOK, Fernet-encrypted at rest)."""
 
     tenant_id: uuid.UUID | None = None
-    provider: str = "anthropic"      # "anthropic" | "openai" | "ollama"
+    provider: str = "anthropic"      # "anthropic" | "openai" | "ollama" | "gemini"
     secret_encrypted: bytes = b""    # Fernet ciphertext of the API key
     model_default: str = ""          # e.g. "claude-3-5-sonnet"
     is_active: bool = True
@@ -345,7 +295,7 @@ class IrAiCredential(SystemModel):
 
 
 @dataclass
-class IrEmbedding(SystemModel):
+class EmbeddingRecord(SystemModel):
     """pgvector row keyed by (tenant_id, model, record_id, provider, model_name)."""
 
     tenant_id: uuid.UUID | None = None
@@ -357,3 +307,39 @@ class IrEmbedding(SystemModel):
     # `vector` column is an actual pgvector value; we leave it as bytes-ish here
     # so callers that don't load pgvector still see the dataclass shape.
     vector: Any = None
+
+
+@dataclass
+class Agent(BaseModel):
+    """Named AI persona with scoped tools — framework primitive (ADR-0018)."""
+
+    slug: str = ""
+    name: str = ""
+    module_scope: str = "*"          # module name or "*" for all enabled modules
+    system_prompt: str = ""
+    allowed_models: list[str] = field(default_factory=list)
+    allowed_actions: list[str] = field(default_factory=list)
+    provider: str | None = None      # optional BYOK provider override
+    model_default: str | None = None
+    is_system: bool = False
+    can_delegate: bool = False
+    allowed_delegate_slugs: list[str] = field(default_factory=list)
+    schedule_interval_minutes: int | None = None
+    schedule_prompt: str = ""
+    schedule_last_run_at: datetime | None = None
+
+
+@dataclass
+class AgentRun(BaseModel):
+    """One execution of a `base.agent` definition."""
+
+    agent_id: uuid.UUID | None = None
+    parent_run_id: uuid.UUID | None = None
+    depth: int = 0
+    triggered_by_user_id: uuid.UUID | None = None
+    input_prompt: str = ""
+    status: str = "pending"          # pending | running | completed | failed
+    output_text: str | None = None
+    tool_trace: list[dict] = field(default_factory=list)
+    tokens_used: int = 0
+    error_message: str | None = None

@@ -1,0 +1,10 @@
+{
+  "model": "base.registry-model",
+  "type": "list",
+  "columns": [
+    { "key": "model_name", "label": "Technical name" },
+    { "key": "label", "label": "Label" },
+    { "key": "module", "label": "Module" },
+    { "key": "is_transient", "label": "Transient" }
+  ]
+}

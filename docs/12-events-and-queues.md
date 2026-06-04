@@ -14,13 +14,13 @@ Three mechanisms with clear, non-overlapping roles.
 
 ## Postgres Outbox
 
-- Durable side-effect queue stored in the `ir_outbox` table.
-- Atomic with the business transaction (`INSERT INTO ir_outbox ...` in the
+- Durable side-effect queue stored in the `base_outbox` table.
+- Atomic with the business transaction (`INSERT INTO base_outbox ...` in the
   same `BEGIN/COMMIT`).
 - Drained by Celery workers with idempotent retry.
 
 ```sql
-CREATE TABLE ir_outbox (
+CREATE TABLE base_outbox (
     id          UUID PRIMARY KEY,
     tenant_id   UUID NOT NULL,
     event       TEXT NOT NULL,
@@ -31,14 +31,14 @@ CREATE TABLE ir_outbox (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX ON ir_outbox (status, next_run_at) WHERE status IN ('pending','processing');
+CREATE INDEX ON base_outbox (status, next_run_at) WHERE status IN ('pending','processing');
 ```
 
 ## Celery 5
 
 - Broker: Redis. Result backend: Redis.
 - Workers run as a separate `worker` service in compose.
-- Beat scheduler reads `ir_cron` and publishes periodic tasks.
+- Beat scheduler reads `base_cron` and publishes periodic tasks.
 - Idempotent task design: every task accepts `outbox_id` and updates the row.
 
 ```python
@@ -55,7 +55,7 @@ def deliver_webhook(self, outbox_id: str) -> None:
 | Hook in same transaction (audit, cache invalidation) | EventBus |
 | Atomic side effect after commit (webhook, email) | Outbox + Celery |
 | Long-running orchestration with state | Outbox + Celery (custom state machine) |
-| Periodic schedule | Celery Beat (driven by `ir_cron`) |
+| Periodic schedule | Celery Beat (driven by `base_cron`) |
 | Multi-step saga with compensation | Outbox + saga implementation in service layer |
 
 ## Why no Temporal in MVP

@@ -9,18 +9,21 @@
 
 ## 0. Identity
 
-You are an engineer working on **Orbiteus**, an AI-native engine for building
-business applications and internal AI agents. Orbiteus is a **modular monolith**
+You are an engineer working on **Orbiteus**, an AI-native **engine** for
+building **domain business applications** and internal AI agents — not a
+finished ERP product. Orbiteus is a **modular monolith**
 with three deployment artifacts:
 
 - `backend/` — FastAPI (Python 3.13) + PostgreSQL 16 + Redis 7
 - `admin-ui/` — Next.js 16 + React 19 + Mantine 9 (internal users)
 - `portal-ui/` — Next.js 16 + React 19 + Mantine 9 (external users / partners, RBAC scope: `portal`)
 
-Orbiteus is **not** a finished product. It is an **engine** — framework primitives
-plus a small set of opinionated, batteries-included subsystems (auth, RBAC,
-multitenancy, audit, cache, events, realtime, AI layer) and one *canonical
-product example* (CRM-MVP) that demonstrates the platform.
+Orbiteus is **not** a finished product. It is an **engine** — framework
+primitives plus batteries-included subsystems (auth, RBAC, multitenancy,
+audit, cache, events, realtime, AI layer), and documented **reference
+domain apps** (see `docs/40-reference-product-caltrain.md`). Domain modules
+(e.g. CRM) are added per deployment — see ADR-0022 JSON views + YAML RBAC.
+Agents follow `docs/39-spec-driven-agent-workflow.md`.
 
 ## 1. Hard rules (never break these)
 
@@ -31,10 +34,10 @@ product example* (CRM-MVP) that demonstrates the platform.
    public services exposed by `orbiteus_core`. Never `from modules.crm... import ...`
    inside another module.
 3. **RBAC is mandatory.** Every read/write goes through `BaseRepository`, which
-   enforces tenant isolation and `ir_model_access` / `ir_rule`. AI tools call
+   enforces tenant isolation and `base_model_access` / `base_rule`. AI tools call
    the same repository — AI **never** bypasses RBAC.
 4. **Audit is mandatory and opt-out, not opt-in.** Every CRUD operation emits an
-   `ir_audit_log` entry with `actor` (`user`/`ai`/`system`), `request_id`,
+   `base_audit_log` entry with `actor` (`user`/`ai`/`system`), `request_id`,
    `tenant_id`, and a per-field diff. Only system-internal log tables may opt-out.
 5. **Vendor neutrality in repo content.** See `AGENTS.md` in the repository root.
    Do not name, link, or allude to specific competing modular ERP demo products.
@@ -94,7 +97,7 @@ This list is binding. Anything outside it requires an ADR.
 - **Mantine 9** as the only design system (no shadcn, MUI, Chakra, Ant).
   ADR-0002 floats with major Mantine versions; the *decision* (Mantine as
   the sole DS) is what's locked, not the version number.
-- @tabler/icons-react 3, axios 1, dayjs 1, recharts 3, @dnd-kit 6
+- @tabler/icons-react 3, axios 1, **@tanstack/react-query** 5, dayjs 1, recharts 3, @dnd-kit 6
 - npm workspaces: `admin-ui` and `portal-ui` only; shared widgets/AI live in
   `admin-ui/src/orbiteus-ui/` (copy into portal-ui when needed)
 
@@ -144,7 +147,7 @@ in `bootstrap.py` of that module — never in `backend/api.py`.
 | FRAMEWORK (core) | registry, BaseRepository, AutoRouter, ui-config,   |
 |                  | auth, RBAC, audit, cache, events, realtime,        |
 |                  | AI layer, sequences, attachments, mail engine     |
-| FRAMEWORK (base) | users, roles, tenants, companies, ir_* tables      |
+| FRAMEWORK (base) | users, roles, tenants, companies, base engine tables      |
 | PRODUCT (sample) | crm (canonical), hr, project, social               |
 | PRODUCT (custom) | client-specific modules built on the engine        |
 
@@ -152,28 +155,32 @@ in `bootstrap.py` of that module — never in `backend/api.py`.
 
 ## 6. AI integration rules
 
-- Providers: Anthropic (default), OpenAI (secondary), Ollama (optional local fallback).
+- Providers: Anthropic (default), OpenAI (secondary), Gemini, Ollama (optional local fallback).
   All plug through `orbiteus_core/ai/providers/`. New providers require an ADR.
-- BYOK only — keys live in `ir_ai_credential`, encrypted with Fernet (`AI_SECRET_KEY`).
+- BYOK only — keys live in `base_ai_credential`, encrypted with Fernet (`AI_SECRET_KEY`).
   Never ship keys in code or `.env.example`.
 - Engine ships ready-to-go: drop in a token, pick a provider in admin UI, AI is on.
 - AI tools come from three sources:
   1. `Action` registry (every Action is callable as a tool).
   2. `QueryTool` per model exposed by the module's `ai.py` (`accessible_models=[...]`).
-  3. `semantic_search(model, query)` over `ir_embedding` (pgvector).
+  3. `semantic_search(model, query)` over `base_embedding` (pgvector).
 - The `RequestContext` of the human user is the **upper bound** on what AI can do.
   Do not create elevated AI contexts. AI cron jobs run with `actor=system` and
   explicit RBAC scope — never with superadmin.
 - Every AI tool call is audited (`actor=ai`, `prompt_id`, `tool_name`, `args`).
-- A prompt is never executed if the tenant has no `ir_ai_credential` row and
+- A prompt is never executed if the tenant has no `base_ai_credential` row and
   no local fallback is configured.
+- **Agents** are framework primitives (`base.agent`, `base.agent-run` in
+  `modules/base`). Module code declares AI surface in `ai.py`; agents filter
+  that surface. Use `AgentLoop` / `POST /api/ai/runs` — do not build ad-hoc
+  orchestrators in product modules. See `docs/37-ai-agents.md` and ADR-0018.
 
 ## 7. Runtime rules
 
 - **Multi-tenancy:** every business model has `tenant_id`. `BaseRepository`
   applies the tenant filter automatically; never bypass it.
 - **Side-effects after a transaction:** EventBus publishes the event, Outbox
-  (`ir_outbox` table) persists it atomically with the transaction, Celery worker
+  (`base_outbox` table) persists it atomically with the transaction, Celery worker
   drains the outbox with idempotent retry. Do not call third-party APIs
   synchronously from request handlers.
 - **Realtime:** emit changes via Server-Sent Events on the topic
@@ -218,8 +225,9 @@ in `bootstrap.py` of that module — never in `backend/api.py`.
 | "Add a field to model M"                   | Update `model/domain.py` + `mapping.py` + `schemas.py` + Alembic migration; do NOT touch frontend pages |
 | "Show this resource in kanban / calendar"  | Add a `<kanban>` / `<calendar>` arch in `view/`; nothing else |
 | "Plug AI into this module"                 | Edit `ai.py` of that module; declare `accessible_models`, `callable_actions`, `suggested_prompts`; render `<PromptInput>` |
+| "Create a named AI agent"                  | CRUD `base.agent` (admin or API); run via `POST /api/ai/runs`; see `37-ai-agents.md` |
 | "Add a webhook for event E"                | Subscribe in EventBus or Outbox consumer; do not poll |
-| "Schedule something nightly"               | Insert `ir_cron` row + Celery Beat schedule; do not use crontab |
+| "Schedule something nightly"               | Insert `base_cron` row + Celery Beat schedule; do not use crontab |
 | "Allow client to see project tasks"        | Use **portal-ui**, not admin-ui; create a `share_link` with portal scope |
 | "Cache this query"                         | Use `orbiteus_core.cache`; never invent `lru_cache` for cross-request data |
 | "Add a chart to dashboard"                 | If user-authored, use `<AIDashboard>`; if static, use `<ResourceGraph>` over `/api/base/aggregate` |
@@ -244,7 +252,7 @@ docs/glossary.md                — Engine, Tenant, Scope, Module, Action, Tool,
 docs/01-engine-positioning.md   — Engine ⟷ Framework ⟷ Product
 docs/02-architecture.md         — 3 layers, modular monolith, lifecycle
 docs/03-modules.md              — module convention (manifest/model/.../ai.py)
-docs/04-data-model.md           — BaseModel, SystemModel, ir_*, custom_fields
+docs/04-data-model.md           — BaseModel, SystemModel, base engine tables, custom_fields
 docs/05-rbac-multitenancy.md    — 5 levels of RBAC + tenant_id
 docs/06-auth.md                 — JWT, refresh rotation, 2FA, share-links
 docs/07-api.md                  — auto-CRUD, query operators, OpenAPI, webhooks
@@ -305,12 +313,12 @@ and a separate wave; never improvise it inline.
 | `<AIDashboard>` UI                | UI placeholder | Backend `/api/ai/dashboard` is scaffolded; the React component renders a placeholder until the dashboard wave (NL prompt → aggregate spec → recharts). |
 | Computed (derived) fields        | NOT in v1.0   | Today modules denormalise on write or derive in the read schema. Generic `@computed` decorator + dependency graph is a wave on its own. |
 | `onchange` engine                | NOT in v1.0   | Form-level reactive recompute (Odoo-style). Same justification — subsystem-sized. |
-| CSV import / export              | NOT in v1.0   | Single-shot endpoints exist for individual models; a generic `ir_import` mapping engine is post-v1.0. |
+| CSV import / export              | NOT in v1.0   | Single-shot endpoints exist for individual models; a generic `base_import` mapping engine is post-v1.0. |
 | Field-level RBAC                 | NOT in v1.0   | Today the granularity is model + record-rule. Per-field read/write masks need a registry primitive + UI binding pass. |
 | Multi-company switch endpoint    | NOT in v1.0   | The data model has `company_id`; a `POST /api/auth/select-company` exists but the UX flow (home shell, badge, scope hint) is post-v1.0. |
 | PDF reports                      | NOT in v1.0   | Jinja → headless Chromium / WeasyPrint pipeline. Big enough to deserve its own ADR. |
-| Mail templates (`IrMailTemplate`)| NOT in v1.0   | `orbiteus_core/mail.py` covers the transport. Template-driven mail (rendering + per-tenant overrides) waits for the mail wave. |
-| Attachments upload UI            | NOT in v1.0   | `ir_attachments` table + portal upload work; admin-ui drag-and-drop into form views is post-v1.0. |
+| Mail templates (`MailTemplate`)| NOT in v1.0   | `orbiteus_core/mail.py` covers the transport. Template-driven mail (rendering + per-tenant overrides) waits for the mail wave. |
+| Attachments upload UI            | PARTIAL       | Backend filestore + Technical `/technical/attachments` + `<AttachmentPanel>` widget; CRM v2 will showcase on lead forms. |
 | Per-module backend coverage thresholds | NOT in v1.0 | Host-side `pytest --cov` under-reports the integration paths that actually run inside the backend container; raising `orbiteus_core ≥ 90 %`, etc. requires an in-container coverage collector. Total 80 % is enforced today. |
 | AI move-the-lead E2E             | Seeded variant | Lives behind `E2E_FULL_SUITE=1` in `admin-ui/e2e/` — runs only on the release pipeline once the demo tenant is seeded. |
 | `detect-secrets` pre-commit hook | NOT in v1.0   | CI scans deps via `pip-audit` + `npm audit`; a local `detect-secrets` baseline is a hardening pass. |

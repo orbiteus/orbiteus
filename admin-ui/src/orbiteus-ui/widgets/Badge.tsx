@@ -5,7 +5,7 @@ import { Badge as MantineBadge, type BadgeProps } from "@mantine/core";
 /** Color rules for the canonical CRM (and reasonable defaults). */
 const COLOR_BY_VALUE: Record<string, string> = {
   // CRM lead/customer/contact kind
-  lead: "blue",
+  lead: "cyan",
   customer: "green",
   contact: "gray",
   // Generic statuses

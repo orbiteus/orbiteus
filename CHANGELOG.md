@@ -14,9 +14,40 @@ versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- **Admin UI:** former `@orbiteus/ui` workspace inlined as `admin-ui/src/orbiteus-ui/`
-  (widgets + AI). Root npm workspaces are `admin-ui` and `portal-ui` only; portal
-  copies components when it needs parity. ADR-0016 superseded.
+## [1.1.0] — 2026-05-29
+
+### Added
+
+- **UI i18n as module catalogs (ADR-0023).** Canonical English in
+  `modules/base/i18n/en.json`; optional `modules/locales` ships `pl`, `de`,
+  `fr`. API: `GET /api/base/i18n/locales`, `GET /api/base/i18n/messages/{lang}`.
+  `@orbiteus/i18n` package; `scripts/check_i18n.py` and
+  `scripts/sync_public_i18n_fallbacks.py` in CI.
+- **Module catalog toggles** (`module.<name>.enabled`) with admin UI invalidation
+  for ui-config, i18n, resources, and attachments.
+- **Locales technical page**, languages metadata (`source` / `module`), DB overrides
+  via `base.ui-translation`.
+- **AI agents** (definitions, runs, delegation, Agent Console), Gemini provider
+  (ADR-0023), system status probes, attachment filestore, mail settings UI.
+- **TanStack Query** across admin-ui (ADR-0020); JSON list/form views; expanded
+  sidebar navigation and module runtime refresh without full reload.
+- **Reference domain repositioning (ADR-0021):** canonical in-repo CRM module
+  removed; Caltrain/LadiesGym documented as reference product.
+
+### Changed
+
+- **Admin UI performance:** no server-side full-catalog fetch in root layout;
+  `/login` and `/welcome` use static public-page fallbacks (~145 keys); authenticated
+  shell loads API catalog once with 5 min React Query cache; module `enabled_map`
+  and merged message caches on backend.
+- **Docker dev:** `ensure-npm-deps.sh` skips repeat `npm install`; fixed
+  `cd /app/admin-ui` in compose commands; portal i18n shell non-blocking bootstrap.
+
+### Fixed
+
+- Login/API errors when postgres/redis were down; proxy 503 with clear message.
+- Module disable hiding locale packs from picker and API without process restart.
+- Hydration and duplicate branding on welcome headers.
 
 ## [1.0.0-rc1] — 2026-05-04 (release candidate)
 
@@ -54,7 +85,7 @@ versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 - **RBAC cache moved to Redis.** Two-tier cache: process-local L1 +
   Redis-backed L2 keyed by `rbac:access` / `rbac:rules` / `rbac:version`.
   Cross-replica invalidation over a `rbac.invalidate` Pub/Sub channel —
-  any mutation of `ir_model_access` / `ir_rules` propagates within
+  any mutation of `base_model_access` / `base_rules` propagates within
   ~50 ms. Open-fail on Redis outage.
 - **`GET /api/base/aggregate?model=&group_by=&op={count|sum|avg|min|max}&measure=`**
   framework primitive — single tenant-scoped endpoint that backs
@@ -221,7 +252,7 @@ First **Engine v1.0** — boring tech stack, AI-native, ready for adopters.
   context vars, `/metrics` Prometheus endpoint, `/api/health/live` and
   `/api/health/ready`.
 - **Repository hooks + audit log (mandatory, opt-out)** — every CRUD writes
-  `ir_audit_log` with `actor=user|ai|system`, redacted diff (ADR-0010).
+  `base_audit_log` with `actor=user|ai|system`, redacted diff (ADR-0010).
 - **EventBus + Postgres Outbox** — durable side-effect queue committed
   atomically with the business transaction (ADR-0010).
 - **Celery 5 + Beat** — outbox drainer, HMAC webhook delivery,
@@ -230,7 +261,7 @@ First **Engine v1.0** — boring tech stack, AI-native, ready for adopters.
   defaults (15 min access / 7 day refresh + rotation flag).
 - **Realtime SSE** — `/api/realtime/subscribe` with Redis Pub/Sub
   cross-replica fan-out and topic RBAC (ADR-0006, ADR-0014).
-- **AI layer (BYOK)** — Fernet-encrypted `ir_ai_credential`, Anthropic /
+- **AI layer (BYOK)** — Fernet-encrypted `base_ai_credential`, Anthropic /
   OpenAI / Ollama provider adapters, `AIModuleConfig` registry per module,
   `pgvector` embeddings with HNSW index, `/api/ai/credentials`,
   `/api/ai/chat`, `/api/ai/dashboard`, monthly token budget guard, PII
@@ -268,11 +299,11 @@ First **Engine v1.0** — boring tech stack, AI-native, ready for adopters.
 
 Three new Alembic revisions ship with this release:
 
-1. `a1f3c0e1b002_audit_log_and_attribution` — `ir_audit_log` +
+1. `a1f3c0e1b002_audit_log_and_attribution` — `base_audit_log` +
    `created_by_id`/`modified_by_id` on every business table.
-2. `b2a4e1c0d003_outbox_and_webhooks` — `ir_outbox` + `ir_webhooks`.
+2. `b2a4e1c0d003_outbox_and_webhooks` — `base_outbox` + `base_webhooks`.
 3. `c3b5d2e1c004_ai_credentials_and_embeddings` — pgvector extension,
-   `ir_ai_credentials`, `ir_embeddings` with HNSW index.
+   `base_ai_credentials`, `base_embeddings` with HNSW index.
 4. `d4c0a1f2e005_canonical_crm` — drops legacy
    `crm_customers`/`crm_opportunities`/`crm_pipelines`, recreates
    `crm_stages`, creates `crm_persons`/`crm_teams`/`crm_leads`.

@@ -1,7 +1,7 @@
 """XML view loader for Orbiteus modules.
 
 Loads view definitions from XML files, applies XPath inheritance, and seeds
-them into the ir_ui_views table.
+them into the base_ui_views table.
 
 XML format (single file can contain multiple views):
     <views>
@@ -132,14 +132,14 @@ async def seed_views_to_db(
     session: Any,
     ctx: Any,
 ) -> None:
-    """Upsert view definitions into ir_ui_views table.
+    """Upsert view definitions into base_ui_views table.
 
     Idempotent — updates existing views by name, inserts new ones.
     inherit_name is resolved to inherit_id via DB lookup.
     """
-    from modules.base.controller.repositories import IrUiViewRepository
+    from modules.base.controller.repositories import UiViewRepository
 
-    repo = IrUiViewRepository(session, ctx)
+    repo = UiViewRepository(session, ctx)
 
     for view in views:
         # Resolve inherit_id if this is an inherited view

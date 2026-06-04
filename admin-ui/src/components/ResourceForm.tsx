@@ -1,17 +1,27 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Stack, Title, Text, Button, Group, TextInput, Textarea, Select,
-  Switch, NumberInput, Alert, Paper, Loader, Tabs, TagsInput, Grid,
+  Switch, NumberInput, Alert, Paper, Loader, Tabs, TagsInput, MultiSelect, Grid,
 } from "@mantine/core";
 import { IconAlertCircle, IconArrowLeft, IconDeviceFloppy, IconTrash } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
-import { api } from "@/lib/api";
+import { api, apiErrorMessage, extractApiError } from "@/lib/api";
+import { useResourceDetail } from "@/lib/queries/resources";
+import {
+  useCreateRecord,
+  useDeleteRecord,
+  useUpdateRecord,
+} from "@/lib/queries/mutations";
 import type { FormPanels } from "@/lib/modelConfig";
 import Many2OneField from "@/components/widgets/Many2OneField";
 import StatusbarField from "@/components/widgets/StatusbarField";
 import { MonetaryInput } from "@/components/widgets/MonetaryField";
+import { PromptInput } from "@/orbiteus-ui/ai";
+import type { AIScope } from "@/orbiteus-ui/ai/types";
+import { useT } from "@orbiteus/i18n";
+import { useAuth } from "@/lib/auth";
 
 export interface FieldDef {
   key: string;
@@ -27,7 +37,9 @@ export interface FieldDef {
     | "date"
     | "many2one"
     | "monetary"
-    | "tags";
+    | "tags"
+    | "multi_select"
+    | "many2many";
   required?: boolean;
   placeholder?: string;
   options?: { value: string; label: string }[];
@@ -50,31 +62,62 @@ interface Props {
   panels?: FormPanels;
   backHref: string;
   onSuccess?: (record: Record<string, unknown>) => void;
+  /** When set, embeds `<PromptInput>` for module-scoped AI (framework hook). */
+  aiScope?: AIScope;
+}
+
+function relationApiPath(relation: string): string {
+  return relation.replace(".", "/");
 }
 
 export default function ResourceForm({
-  title, resource, recordId, fields, panels, backHref, onSuccess,
+  title, resource, recordId, fields, panels, backHref, onSuccess, aiScope,
 }: Props) {
   const router = useRouter();
+  const t = useT();
+  const { user } = useAuth();
   const isEdit = Boolean(recordId);
+
+  const createMutation = useCreateRecord(resource);
+  const updateMutation = useUpdateRecord(resource, recordId);
+  const deleteMutation = useDeleteRecord(resource);
+  const saveMutation = isEdit ? updateMutation : createMutation;
+  const saving = saveMutation.isPending;
+  const deleting = deleteMutation.isPending;
+
+  const expandFields = useMemo(
+    () => fields.filter((f) => f.type === "many2one").map((f) => f.key),
+    [fields],
+  );
+  const recordQuery = useResourceDetail(resource, recordId, expandFields);
 
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState("");
-  const [loading, setLoading] = useState(isEdit);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [valuesHydrated, setValuesHydrated] = useState(!isEdit);
   const [dynamicOptions, setDynamicOptions] = useState<Record<string, { value: string; label: string }[]>>({});
 
+  const loading = isEdit && !valuesHydrated && recordQuery.isFetching;
+
   useEffect(() => {
-    const asyncFields = fields.filter((f) => f.optionsResource);
+    const asyncFields = fields.filter(
+      (f) => f.optionsResource || (f.type === "many2many" && f.relation),
+    );
     asyncFields.forEach(async (f) => {
       try {
-        const { data } = await api.get(`/${f.optionsResource}`, { skipGlobalErrorToast: true });
+        const path = f.optionsResource
+          ? f.optionsResource
+          : relationApiPath(f.relation!);
+        const { data } = await api.get(`/${path}`, {
+          params: { limit: 200 },
+          skipGlobalErrorToast: true,
+        });
         const items: Record<string, unknown>[] = data.items ?? data ?? [];
+        const valueKey = f.optionValue ?? "id";
+        const labelKey = f.optionLabel ?? "name";
         const opts = items.map((item) => ({
-          value: String(item[f.optionValue ?? "id"]),
-          label: String(item[f.optionLabel ?? "name"]),
+          value: String(item[valueKey]),
+          label: String(item[labelKey] ?? item[valueKey]),
         }));
         setDynamicOptions((prev) => ({ ...prev, [f.key]: opts }));
       } catch {
@@ -84,22 +127,25 @@ export default function ResourceForm({
   }, [fields]);
 
   useEffect(() => {
-    if (!isEdit) return;
-    api.get(`/${resource}/${recordId}`, { skipGlobalErrorToast: true })
-      .then(({ data }) => {
-        const flat: Record<string, unknown> = {};
-        fields.forEach((f) => {
-          if (f.type === "tags") {
-            flat[f.key] = Array.isArray(data[f.key]) ? data[f.key] : (data[f.key] != null ? [String(data[f.key])] : []);
-          } else {
-            flat[f.key] = data[f.key] ?? "";
-          }
-        });
-        setValues(flat);
-      })
-      .catch((e) => setGlobalError(e.response?.data?.detail ?? e.message))
-      .finally(() => setLoading(false));
-  }, [recordId, resource, isEdit, fields]);
+    if (!isEdit || !recordQuery.data) return;
+    const data = recordQuery.data as Record<string, unknown>;
+    const flat: Record<string, unknown> = {};
+    fields.forEach((f) => {
+      if (f.type === "tags" || f.type === "multi_select" || f.type === "many2many") {
+        flat[f.key] = Array.isArray(data[f.key]) ? data[f.key] : (data[f.key] != null ? [String(data[f.key])] : []);
+      } else {
+        flat[f.key] = data[f.key] ?? "";
+      }
+    });
+    setValues(flat);
+    setValuesHydrated(true);
+  }, [recordId, isEdit, fields, recordQuery.data]);
+
+  useEffect(() => {
+    if (recordQuery.isError) {
+      setGlobalError(apiErrorMessage(recordQuery.error, "Load failed"));
+    }
+  }, [recordQuery.isError, recordQuery.error]);
 
   function set(key: string, value: unknown) {
     setValues((v) => ({ ...v, [key]: value }));
@@ -111,7 +157,7 @@ export default function ResourceForm({
     fields.forEach((f) => {
       if (!f.required) return;
       const v = values[f.key];
-      if (f.type === "tags") {
+      if (f.type === "tags" || f.type === "multi_select" || f.type === "many2many") {
         if (!Array.isArray(v) || v.length === 0) errs[f.key] = "Required field";
         return;
       }
@@ -140,6 +186,10 @@ export default function ResourceForm({
     }
 
     if (f.type === "many2one" && f.relation) {
+      const expanded = recordQuery.data as Record<string, unknown> | undefined;
+      const nameKey = `${f.key}__name`;
+      const initialLabel =
+        expanded && typeof expanded[nameKey] === "string" ? expanded[nameKey] as string : undefined;
       return (
         <Many2OneField
           key={f.key}
@@ -150,6 +200,7 @@ export default function ResourceForm({
           required={f.required}
           error={err}
           readOnly={ro}
+          initialLabel={initialLabel}
         />
       );
     }
@@ -164,6 +215,41 @@ export default function ResourceForm({
           onChange={(v) => set(f.key, v)}
           error={err}
           readOnly={ro}
+        />
+      );
+    }
+
+    if (f.type === "many2many") {
+      return (
+        <MultiSelect
+          key={f.key}
+          label={f.label}
+          placeholder={f.placeholder ?? "Select records…"}
+          data={opts}
+          value={Array.isArray(val) ? (val as string[]).map(String) : []}
+          onChange={(v) => set(f.key, v)}
+          error={err}
+          searchable
+          clearable
+          disabled={ro}
+        />
+      );
+    }
+
+    if (f.type === "multi_select") {
+      return (
+        <MultiSelect
+          key={f.key}
+          label={f.label}
+          placeholder={f.placeholder ?? "Select…"}
+          data={opts}
+          value={Array.isArray(val) ? (val as string[]) : []}
+          onChange={(v) => set(f.key, v)}
+          error={err}
+          searchable
+          clearable
+          readOnly={ro}
+          disabled={ro}
         />
       );
     }
@@ -343,44 +429,40 @@ export default function ResourceForm({
     const errs = validateRequired();
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    setSaving(true);
+    const fieldByKey = new Map(fields.map((f) => [f.key, f]));
+    const isNullableType = (t?: FieldDef["type"]): boolean =>
+      t === "many2one" || t === "date" || t === "number" || t === "monetary" || t === "select";
+
+    const payload = Object.fromEntries(
+      Object.entries(values).map(([key, raw]) => {
+        const f = fieldByKey.get(key);
+        if (f?.type === "tags" || f?.type === "multi_select" || f?.type === "many2many") {
+          return [key, Array.isArray(raw) ? raw : []];
+        }
+        if (f?.type === "text" && f.key === "password" && (raw === "" || raw == null)) {
+          return [key, undefined];
+        }
+        if (raw === undefined) return [key, null];
+        if (raw === "" && isNullableType(f?.type)) return [key, null];
+        return [key, raw];
+      }).filter(([, v]) => v !== undefined)
+    );
+
     try {
-      // Per-field coercion before submit — Pydantic v2 doesn't accept
-      // ambiguous values:
-      //   * `Optional[UUID4]` / `Optional[date]` / `Optional[Decimal]`
-      //     reject empty strings, so empty many2one / date / number /
-      //     monetary inputs must be sent as `null`.
-      //   * Plain `str` fields stay as "" — sending `null` would fail
-      //     validation with "Input should be a valid string".
-      //   * `tags` (list[str]) must never be `null` — always an array.
-      const fieldByKey = new Map(fields.map((f) => [f.key, f]));
-      const isNullableType = (t?: FieldDef["type"]): boolean =>
-        t === "many2one" || t === "date" || t === "number" || t === "monetary" || t === "select";
-
-      const payload = Object.fromEntries(
-        Object.entries(values).map(([key, raw]) => {
-          const f = fieldByKey.get(key);
-          if (f?.type === "tags") {
-            return [key, Array.isArray(raw) ? raw : []];
-          }
-          if (raw === undefined) return [key, null];
-          if (raw === "" && isNullableType(f?.type)) return [key, null];
-          return [key, raw];
-        })
-      );
-
-      const { data } = isEdit
-        ? await api.put(`/${resource}/${recordId}`, payload, { skipGlobalErrorToast: true })
-        : await api.post(`/${resource}`, payload, { skipGlobalErrorToast: true });
+      const data = await saveMutation.mutateAsync(payload);
 
       notifications.show({
-        title: isEdit ? "Saved" : "Created",
-        message: isEdit ? "Record updated." : "Record created.",
+        title: isEdit ? t("form.saved") : t("form.created"),
+        message: isEdit ? t("form.saved") : t("form.created"),
         color: "green",
       });
 
+      if (resource === "base/user" && recordId && user?.id === recordId) {
+        window.dispatchEvent(new Event("orbiteus:user-preferences-updated"));
+      }
+
       if (onSuccess) {
-        onSuccess(data);
+        onSuccess(data as Record<string, unknown>);
       } else {
         router.push(backHref);
       }
@@ -395,29 +477,33 @@ export default function ResourceForm({
         });
         setErrors(fieldErrs);
       } else {
-        setGlobalError(String(detail ?? "Save failed"));
+        setGlobalError(extractApiError(err, t("form.saveFailed")));
       }
-    } finally {
-      setSaving(false);
     }
   }
 
   async function handleDelete() {
+    if (!recordId) return;
     if (!confirm("Are you sure you want to delete this record? This cannot be undone.")) return;
-    setDeleting(true);
     try {
-      await api.delete(`/${resource}/${recordId}`, { skipGlobalErrorToast: true });
-      notifications.show({ title: "Deleted", message: "Record has been deleted.", color: "orange" });
+      await deleteMutation.mutateAsync(recordId);
+      notifications.show({ title: t("form.deleted"), message: t("form.recordDeleted"), color: "orange" });
       router.push(backHref);
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } } };
-      setGlobalError(e.response?.data?.detail ?? "Delete failed");
-    } finally {
-      setDeleting(false);
+      setGlobalError(extractApiError(err, t("form.deleteFailed")));
     }
   }
 
-  if (loading) return <Loader color="gray" size="sm" />;
+  if (loading) {
+    return (
+      <Stack gap="md">
+        <Paper p="md">
+          <Title order={3}>{title}</Title>
+          <Loader color="gray" size="sm" mt="md" />
+        </Paper>
+      </Stack>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit}>
@@ -431,7 +517,7 @@ export default function ResourceForm({
                 onClick={() => router.push(backHref)}
                 type="button"
               >
-                Back
+                {t("common.back")}
               </Button>
               <Title order={3}>{title}</Title>
             </Group>
@@ -444,7 +530,7 @@ export default function ResourceForm({
                   onClick={handleDelete}
                   type="button"
                 >
-                  Delete
+                  {t("common.delete")}
                 </Button>
               )}
               <Button
@@ -452,12 +538,12 @@ export default function ResourceForm({
                 leftSection={<IconDeviceFloppy size={16} />}
                 loading={saving}
               >
-                {isEdit ? "Save" : "Create"}
+                {isEdit ? t("common.save") : t("common.create")}
               </Button>
             </Group>
           </Group>
           <Text size="sm" c="dimmed" mt={4}>
-            Complete the form and save changes.
+            {t("form.completeHint")}
           </Text>
         </Paper>
 
@@ -466,6 +552,13 @@ export default function ResourceForm({
         )}
 
         {renderFormBody()}
+
+        {aiScope ? (
+          <Paper p="md" withBorder>
+            <Text size="sm" fw={600} mb="xs">AI assistant</Text>
+            <PromptInput scope={aiScope} placeholder="Ask about this record…" />
+          </Paper>
+        ) : null}
       </Stack>
     </form>
   );

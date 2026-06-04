@@ -1,0 +1,61 @@
+.rail {
+  transition: width 200ms ease;
+  overflow: hidden;
+}
+
+.pinBar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--mantine-color-default-border);
+  padding-top: var(--mantine-spacing-xs);
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.railDivider {
+  height: 1px;
+  margin: var(--mantine-spacing-xs) var(--mantine-spacing-xs);
+  background: var(--mantine-color-default-border);
+}
+
+.compactNav {
+  justify-content: center;
+}
+
+.compactNav :global([data-position="left"]) {
+  margin-inline-end: 0;
+}
+
+.compactNav :global(.mantine-NavLink-label),
+.compactNav :global(.mantine-NavLink-section) {
+  display: none;
+}
+
+/* Slim, low-contrast sidebar scrollbar */
+.sidebarScroll :global(.mantine-ScrollArea-viewport) {
+  padding-right: 2px;
+}
+
+.sidebarScroll :global(.mantine-ScrollArea-scrollbar) {
+  width: 6px;
+  padding: 2px;
+}
+
+.sidebarScroll :global(.mantine-ScrollArea-scrollbar[data-orientation="vertical"]) {
+  inset-inline-end: 2px;
+}
+
+.sidebarScroll :global(.mantine-ScrollArea-thumb) {
+  background: color-mix(in srgb, var(--mantine-color-gray-5) 55%, transparent);
+  border-radius: 999px;
+}
+
+.sidebarScroll :global(.mantine-ScrollArea-thumb:hover) {
+  background: color-mix(in srgb, var(--mantine-color-gray-6) 75%, transparent);
+}
+
+:global([data-mantine-color-scheme="dark"]) .sidebarScroll :global(.mantine-ScrollArea-thumb) {
+  background: color-mix(in srgb, var(--mantine-color-dark-2) 45%, transparent);
+}
+
+:global([data-mantine-color-scheme="dark"]) .sidebarScroll :global(.mantine-ScrollArea-thumb:hover) {
+  background: color-mix(in srgb, var(--mantine-color-dark-1) 65%, transparent);
+}

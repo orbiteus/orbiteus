@@ -70,7 +70,7 @@ pytest backend/tests/smoke/
 
 - S3 bucket versioning enabled.
 - Cross-region replication (optional, recommended for production).
-- File listing kept in `ir_attachment` rows; if S3 is gone, `ir_attachment`
+- File listing kept in `base_attachment` rows; if S3 is gone, `base_attachment`
   remains as an audit trail.
 
 ## Disaster scenarios
@@ -110,7 +110,7 @@ proves the latest backup actually round-trips.
 drill_started:  20260504T114347Z
 drill_finished: 20260504T114351Z
 backup_file:    /tmp/orbiteus-drill/backups/orbiteus_20260504T114326Z.sql.gz
-ir_table_count: 18
+engine_table_count: 18
 result:         pass
 ```
 

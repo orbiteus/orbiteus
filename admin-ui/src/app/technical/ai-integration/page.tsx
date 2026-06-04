@@ -1,6 +1,6 @@
 "use client";
 /**
- * Technical → AI Integration
+ * AI → AI Integration
  *
  * BYOK admin surface:
  *  - List configured providers (`GET /api/ai/credentials`).
@@ -27,11 +27,12 @@ import {
   IconAlertCircle, IconCheck, IconPlugConnected, IconSend, IconSparkles,
   IconTrash,
 } from "@tabler/icons-react";
+import { useT } from "@orbiteus/i18n";
 import { api } from "@/lib/api";
 
 interface CredentialRow {
   id: string;
-  provider: "anthropic" | "openai" | "ollama";
+  provider: "anthropic" | "openai" | "ollama" | "gemini";
   model_default: string | null;
   is_active: boolean;
   monthly_token_budget: number | null;
@@ -45,14 +46,16 @@ interface ChatResponse {
   finish_reason?: string;
 }
 
-const PROVIDERS: { value: CredentialRow["provider"]; label: string; defaultModel: string }[] = [
-  { value: "anthropic", label: "Anthropic (Claude)", defaultModel: "claude-3-5-sonnet-latest" },
-  { value: "openai",    label: "OpenAI (GPT)",       defaultModel: "gpt-4o-mini" },
-  { value: "ollama",    label: "Ollama (local)",     defaultModel: "llama3.1" },
+const PROVIDERS: { value: CredentialRow["provider"]; labelKey: string; defaultModel: string }[] = [
+  { value: "anthropic", labelKey: "aiIntegration.provider.anthropic", defaultModel: "claude-3-5-sonnet-latest" },
+  { value: "openai", labelKey: "aiIntegration.provider.openai", defaultModel: "gpt-4o-mini" },
+  { value: "gemini", labelKey: "aiIntegration.provider.gemini", defaultModel: "gemini-2.0-flash" },
+  { value: "ollama", labelKey: "aiIntegration.provider.ollama", defaultModel: "llama3.1" },
 ];
 
-function providerLabel(p: string): string {
-  return PROVIDERS.find((x) => x.value === p)?.label ?? p;
+function providerLabel(t: (key: string) => string, p: string): string {
+  const key = PROVIDERS.find((x) => x.value === p)?.labelKey;
+  return key ? t(key) : p;
 }
 
 function defaultModelFor(p: CredentialRow["provider"]): string {
@@ -65,6 +68,7 @@ function formatTokens(n: number): string {
 }
 
 export default function AiIntegrationPage() {
+  const t = useT();
   // ---- Configured providers ----
   const [credentials, setCredentials] = useState<CredentialRow[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -103,7 +107,7 @@ export default function AiIntegrationPage() {
   async function onSave() {
     setSubmitError("");
     if (!secret.trim()) {
-      setSubmitError("API key is required.");
+      setSubmitError(t("aiIntegration.apiKeyRequired"));
       return;
     }
     setSubmitting(true);
@@ -115,8 +119,8 @@ export default function AiIntegrationPage() {
         monthly_token_budget: typeof budget === "number" ? budget : null,
       }, { skipGlobalErrorToast: true });
       notifications.show({
-        title: "Saved",
-        message: `Stored ${providerLabel(provider)} credential.`,
+        title: t("aiIntegration.savedTitle"),
+        message: t("aiIntegration.savedMessage", { provider: providerLabel(t, provider) }),
         color: "green",
         icon: <IconCheck size={16} />,
       });
@@ -124,7 +128,7 @@ export default function AiIntegrationPage() {
       await refreshList();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
-      const raw = e.response?.data?.detail ?? "Failed to save credential.";
+      const raw = e.response?.data?.detail ?? t("aiIntegration.saveFailed");
       setSubmitError(humaniseAiError(raw));
     } finally {
       setSubmitting(false);
@@ -132,22 +136,22 @@ export default function AiIntegrationPage() {
   }
 
   async function onDelete(p: string) {
-    if (!confirm(`Delete the ${providerLabel(p)} credential? Saved AI usage counters are retained.`)) {
+    if (!confirm(t("aiIntegration.deleteConfirm", { provider: providerLabel(t, p) }))) {
       return;
     }
     try {
       await api.delete(`/ai/credentials/${p}`, { skipGlobalErrorToast: true });
       notifications.show({
-        title: "Deleted",
-        message: `${providerLabel(p)} credential removed.`,
+        title: t("form.deleted"),
+        message: t("aiIntegration.deletedMessage", { provider: providerLabel(t, p) }),
         color: "orange",
       });
       await refreshList();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } };
       notifications.show({
-        title: "Delete failed",
-        message: e.response?.data?.detail ?? "Could not delete credential.",
+        title: t("aiIntegration.deleteFailedTitle"),
+        message: e.response?.data?.detail ?? t("aiIntegration.deleteFailed"),
         color: "red",
       });
     }
@@ -267,7 +271,7 @@ export default function AiIntegrationPage() {
   // ---- Test query ----
   const [testProvider, setTestProvider] = useState<CredentialRow["provider"]>("anthropic");
   const [testPrompt, setTestPrompt] = useState(
-    "Reply with exactly one word: hello"
+    t("aiIntegration.defaultPrompt")
   );
   const [testRunning, setTestRunning] = useState(false);
   const [testResult, setTestResult] = useState<ChatResponse | null>(null);
@@ -293,7 +297,7 @@ export default function AiIntegrationPage() {
     } catch (err: unknown) {
       const e = err as { response?: { status?: number; data?: { detail?: unknown } } };
       const detail = e.response?.data?.detail;
-      let msg = "Test query failed.";
+      let msg = t("aiIntegration.testQueryFailed");
       if (typeof detail === "string") {
         msg = detail;
       } else if (detail && typeof detail === "object" && "message" in detail) {
@@ -301,9 +305,9 @@ export default function AiIntegrationPage() {
       }
       msg = humaniseAiError(msg);
       if (e.response?.status === 412) {
-        msg = `${msg} Configure the ${providerLabel(testProvider)} credential first.`;
+        msg = `${msg} ${t("aiIntegration.configureCredentialFirst", { provider: providerLabel(t, testProvider) })}`;
       } else if (e.response?.status === 429) {
-        msg = `${msg} Monthly token budget exceeded.`;
+        msg = `${msg} ${t("aiIntegration.monthlyBudgetExceeded")}`;
       }
       setTestError(msg);
     } finally {
@@ -318,16 +322,12 @@ export default function AiIntegrationPage() {
   function humaniseAiError(raw: string): string {
     if (/tenant context required/i.test(raw)) {
       return (
-        "Your account is not bound to a tenant, so AI credentials cannot " +
-        "be stored or used. Re-create the user under Technical → Access, " +
-        "or run the bootstrap with BOOTSTRAP_ADMIN_TENANT set, then sign " +
-        "in again."
+        t("aiIntegration.humanError.tenantContext")
       );
     }
     if (/provider rejected/i.test(raw)) {
       return (
-        "The provider rejected the supplied API key — double-check the " +
-        "value and that the key is enabled for the selected model."
+        t("aiIntegration.humanError.providerRejected")
       );
     }
     return raw;
@@ -342,10 +342,9 @@ export default function AiIntegrationPage() {
         <Group gap="sm" align="center">
           <IconSparkles size={22} stroke={1.5} />
           <Stack gap={0}>
-            <Title order={3}>AI Integration</Title>
+            <Title order={3}>{t("nav.ai.integration")}</Title>
             <Text size="sm" c="dimmed">
-              Bring-your-own-key per tenant. Keys are encrypted at rest
-              (Fernet, ADR-0004) and never returned by the API after save.
+              {t("aiIntegration.description")}
             </Text>
           </Stack>
         </Group>
@@ -355,9 +354,9 @@ export default function AiIntegrationPage() {
       <Paper>
         <Stack gap="sm">
           <Group justify="space-between" align="center">
-            <Title order={5}>Configured providers</Title>
+            <Title order={5}>{t("aiIntegration.configuredProviders")}</Title>
             <Button variant="subtle" size="xs" onClick={() => void refreshList()}>
-              Refresh
+              {t("common.refresh")}
             </Button>
           </Group>
 
@@ -365,19 +364,17 @@ export default function AiIntegrationPage() {
             <Group justify="center" py="md"><Loader size="sm" color="gray" /></Group>
           ) : credentials.length === 0 ? (
             <Alert variant="light" color="gray" icon={<IconPlugConnected size={16} />}>
-              No AI provider configured for this tenant. Add a credential below to enable
-              the dashboard prompt input, the Cmd+K AI suggestions, and the test query
-              tool.
+              {t("aiIntegration.noProvider")}
             </Alert>
           ) : (
             <Table withTableBorder withColumnBorders striped>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Provider</Table.Th>
-                  <Table.Th>Default model</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Monthly budget</Table.Th>
-                  <Table.Th>Usage (tokens)</Table.Th>
+                  <Table.Th>{t("aiIntegration.provider")}</Table.Th>
+                  <Table.Th>{t("aiIntegration.defaultModel")}</Table.Th>
+                  <Table.Th>{t("aiIntegration.status")}</Table.Th>
+                  <Table.Th>{t("aiIntegration.monthlyBudget")}</Table.Th>
+                  <Table.Th>{t("aiIntegration.usageTokens")}</Table.Th>
                   <Table.Th style={{ width: 60 }}> </Table.Th>
                 </Table.Tr>
               </Table.Thead>
@@ -386,7 +383,7 @@ export default function AiIntegrationPage() {
                   <Table.Tr key={c.id}>
                     <Table.Td>
                       <Group gap="xs">
-                        <Text fw={500}>{providerLabel(c.provider)}</Text>
+                        <Text fw={500}>{providerLabel(t, c.provider)}</Text>
                         <Badge color="gray" variant="light" size="xs">{c.provider}</Badge>
                       </Group>
                     </Table.Td>
@@ -395,12 +392,12 @@ export default function AiIntegrationPage() {
                     </Table.Td>
                     <Table.Td>
                       {c.is_active
-                        ? <Badge color="green" variant="light">active</Badge>
-                        : <Badge color="gray" variant="light">disabled</Badge>}
+                        ? <Badge color="green" variant="light">{t("aiIntegration.active")}</Badge>
+                        : <Badge color="gray" variant="light">{t("aiIntegration.disabled")}</Badge>}
                     </Table.Td>
                     <Table.Td>
                       {c.monthly_token_budget == null
-                        ? <Text c="dimmed" size="sm">unlimited</Text>
+                        ? <Text c="dimmed" size="sm">{t("aiIntegration.unlimited")}</Text>
                         : formatTokens(c.monthly_token_budget)}
                     </Table.Td>
                     <Table.Td>{formatTokens(c.usage_tokens)}</Table.Td>
@@ -412,7 +409,7 @@ export default function AiIntegrationPage() {
                         leftSection={<IconTrash size={14} />}
                         onClick={() => void onDelete(c.provider)}
                       >
-                        Delete
+                        {t("common.delete")}
                       </Button>
                     </Table.Td>
                   </Table.Tr>
@@ -426,11 +423,9 @@ export default function AiIntegrationPage() {
       {/* Add / overwrite */}
       <Paper>
         <Stack gap="sm">
-          <Title order={5}>Add or update a credential</Title>
+          <Title order={5}>{t("aiIntegration.addOrUpdate")}</Title>
           <Text size="sm" c="dimmed">
-            The backend pings the provider with the supplied API key before
-            storing it; a rejected key is never persisted. Saving a key for a
-            provider that already exists overwrites the previous secret.
+            {t("aiIntegration.addOrUpdateHint")}
           </Text>
 
           {submitError && (
@@ -440,10 +435,12 @@ export default function AiIntegrationPage() {
           )}
 
           <Select
-            label="Provider"
+            label={t("aiIntegration.provider")}
             data={PROVIDERS.map((p) => ({
               value: p.value,
-              label: hasCredential(p.value) ? `${p.label} — already configured` : p.label,
+              label: hasCredential(p.value)
+                ? `${t(p.labelKey)} — ${t("aiIntegration.alreadyConfigured")}`
+                : t(p.labelKey),
             }))}
             value={provider}
             onChange={onProviderChange}
@@ -451,29 +448,37 @@ export default function AiIntegrationPage() {
           />
 
           <PasswordInput
-            label="API key"
+            label={t("aiIntegration.apiKey")}
             description={
               provider === "ollama"
-                ? "For local Ollama use any non-empty placeholder; the secret is not used at request time."
-                : "The key is sent over HTTPS, never echoed back, and stored encrypted at rest."
+                ? t("aiIntegration.apiKeyDescOllama")
+                : t("aiIntegration.apiKeyDescDefault")
             }
-            placeholder={provider === "anthropic" ? "sk-ant-…" : provider === "openai" ? "sk-…" : "ollama-local"}
+            placeholder={
+              provider === "anthropic"
+                ? "sk-ant-…"
+                : provider === "openai"
+                  ? "sk-…"
+                  : provider === "gemini"
+                    ? "AIza…"
+                    : "ollama-local"
+            }
             value={secret}
             onChange={(e) => setSecret(e.currentTarget.value)}
             required
           />
 
           <TextInput
-            label="Default model"
-            description="Used when /api/ai/chat is called without an explicit `model` field."
+            label={t("aiIntegration.defaultModel")}
+            description={t("aiIntegration.defaultModelHint")}
             value={modelDefault}
             onChange={(e) => setModelDefault(e.currentTarget.value)}
             placeholder={defaultModelFor(provider)}
           />
 
           <NumberInput
-            label="Monthly token budget"
-            description="Soft cap per tenant; calls return 429 once this is reached. Leave empty for unlimited."
+            label={t("aiIntegration.monthlyBudget")}
+            description={t("aiIntegration.monthlyBudgetHint")}
             value={budget}
             onChange={(v) => setBudget(typeof v === "number" ? v : "")}
             min={0}
@@ -489,7 +494,7 @@ export default function AiIntegrationPage() {
               leftSection={<IconCheck size={16} />}
               onClick={() => void onSave()}
             >
-              {hasCredential(provider) ? "Overwrite credential" : "Save credential"}
+              {hasCredential(provider) ? t("aiIntegration.overwriteCredential") : t("aiIntegration.saveCredential")}
             </Button>
           </Group>
         </Stack>
@@ -498,25 +503,22 @@ export default function AiIntegrationPage() {
       {/* Test query */}
       <Paper>
         <Stack gap="sm">
-          <Title order={5}>Test query</Title>
+          <Title order={5}>{t("aiIntegration.testQuery")}</Title>
           <Text size="sm" c="dimmed">
-            Sends a single user message through <Code>POST /api/ai/chat</Code>{" "}
-            against the selected provider. Useful to verify a freshly added
-            key, the active budget, and round-trip latency without leaving
-            the admin shell.
+            {t("aiIntegration.testQueryHint")} <Code>POST /api/ai/chat</Code>.
           </Text>
 
           <Select
-            label="Provider"
-            data={PROVIDERS.map((p) => ({ value: p.value, label: p.label }))}
+            label={t("aiIntegration.provider")}
+            data={PROVIDERS.map((p) => ({ value: p.value, label: t(p.labelKey) }))}
             value={testProvider}
             onChange={(v) => v && setTestProvider(v as CredentialRow["provider"])}
             allowDeselect={false}
           />
 
           <Textarea
-            label="Prompt"
-            description="Single-turn user message. Backend wraps it as { role: 'user', content: … }."
+            label={t("aiIntegration.prompt")}
+            description={t("aiIntegration.promptHint")}
             value={testPrompt}
             onChange={(e) => setTestPrompt(e.currentTarget.value)}
             autosize
@@ -526,8 +528,8 @@ export default function AiIntegrationPage() {
 
           <Group justify="space-between" align="center">
             <Switch
-              label="Stream response (SSE)"
-              description="Use POST /api/ai/chat?stream=1 — text fragments arrive incrementally."
+              label={t("aiIntegration.streamResponse")}
+              description={t("aiIntegration.streamResponseHint")}
               checked={testStream}
               onChange={(e) => setTestStream(e.currentTarget.checked)}
             />
@@ -537,7 +539,7 @@ export default function AiIntegrationPage() {
               onClick={() => void onTest()}
               disabled={!testPrompt.trim()}
             >
-              Send test query
+              {t("aiIntegration.sendTestQuery")}
             </Button>
           </Group>
 
@@ -552,7 +554,7 @@ export default function AiIntegrationPage() {
               <Stack gap="xs">
                 <Group justify="space-between">
                   <Group gap="xs">
-                    <Badge color="green" variant="light">response</Badge>
+                    <Badge color="green" variant="light">{t("aiIntegration.response")}</Badge>
                     {testResult.finish_reason && (
                       <Badge color="gray" variant="light" size="xs">
                         {testResult.finish_reason}
@@ -560,11 +562,11 @@ export default function AiIntegrationPage() {
                     )}
                   </Group>
                   <Text size="xs" c="dimmed">
-                    {formatTokens(testResult.usage_tokens)} tokens used
+                    {t("aiIntegration.tokensUsed", { count: formatTokens(testResult.usage_tokens) })}
                   </Text>
                 </Group>
                 <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-                  {testResult.text || "(empty response)"}
+                  {testResult.text || t("aiIntegration.emptyResponse")}
                 </Text>
               </Stack>
             </Paper>

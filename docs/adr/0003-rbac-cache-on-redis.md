@@ -6,14 +6,14 @@
 
 ## Context
 
-The current implementation caches `ir_model_access` and `ir_rule` in process
+The current implementation caches `base_model_access` and `base_rule` in process
 memory. With multiple FastAPI replicas, mutations require waiting for cache TTL
 or restart, which is unacceptable.
 
 ## Decision
 
 Move the RBAC cache to Redis with a 60-second TTL. Mutations to
-`ir_model_access` / `ir_rule` publish `rbac.invalidated` on the EventBus,
+`base_model_access` / `base_rule` publish `rbac.invalidated` on the EventBus,
 which deletes affected keys.
 
 ## Consequences

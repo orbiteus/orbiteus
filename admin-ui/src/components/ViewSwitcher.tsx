@@ -5,16 +5,17 @@ import {
   IconList, IconLayoutKanban, IconCalendar,
   IconChartBar, IconTable, IconActivity,
 } from "@tabler/icons-react";
+import { useTranslatedViewLabel } from "@/lib/translatedModel";
 
 export type ViewType = "list" | "kanban" | "calendar" | "graph" | "pivot" | "activities";
 
-const VIEW_META: Record<ViewType, { icon: React.ReactNode; label: string }> = {
-  list:       { icon: <IconList size={16} />,           label: "List" },
-  kanban:     { icon: <IconLayoutKanban size={16} />,   label: "Kanban" },
-  calendar:   { icon: <IconCalendar size={16} />,       label: "Calendar" },
-  graph:      { icon: <IconChartBar size={16} />,       label: "Chart" },
-  pivot:      { icon: <IconTable size={16} />,          label: "Pivot" },
-  activities: { icon: <IconActivity size={16} />,       label: "Activities" },
+const VIEW_ICONS: Record<ViewType, React.ReactNode> = {
+  list: <IconList size={18} />,
+  kanban: <IconLayoutKanban size={18} />,
+  calendar: <IconCalendar size={18} />,
+  graph: <IconChartBar size={18} />,
+  pivot: <IconTable size={18} />,
+  activities: <IconActivity size={18} />,
 };
 
 interface Props {
@@ -30,22 +31,33 @@ export function useCurrentView(defaultView: ViewType = "list"): ViewType {
 export default function ViewSwitcher({ available, current }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const labelList = useTranslatedViewLabel("list");
+  const labelKanban = useTranslatedViewLabel("kanban");
+  const labelCalendar = useTranslatedViewLabel("calendar");
+  const labelGraph = useTranslatedViewLabel("graph");
+  const labels: Record<ViewType, string> = {
+    list: labelList,
+    kanban: labelKanban,
+    calendar: labelCalendar,
+    graph: labelGraph,
+    pivot: "Pivot",
+    activities: "Activities",
+  };
 
   if (available.length <= 1) return null;
 
   return (
     <SegmentedControl
-      size="xs"
       value={current}
       onChange={(v) => router.push(`${pathname}?view=${v}`)}
       data={available.map((v) => ({
         value: v,
         label: (
-          <Group gap={6} wrap="nowrap">
+          <Group gap={8} wrap="nowrap">
             <span style={{ display: "flex", alignItems: "center", lineHeight: 0 }}>
-              {VIEW_META[v].icon}
+              {VIEW_ICONS[v]}
             </span>
-            <Text size="xs" fw={500}>{VIEW_META[v].label}</Text>
+            <Text size="sm" fw={500}>{labels[v]}</Text>
           </Group>
         ),
       }))}

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Skeleton, Stack, Text, Title, Progress, Group, Paper } from "@mantine/core";
-import { api } from "@/lib/api";
 import type { FieldMeta } from "@/lib/api";
 import { humanizeFieldName, useI18n } from "@/lib/i18n";
 import EmptyState from "@/components/EmptyState";
+import { useResourceList } from "@/lib/queries/resources";
+import { relationToResource } from "@/lib/relationPath";
 
 interface Props {
   resource: string;
@@ -14,42 +15,33 @@ interface Props {
   fieldMeta?: FieldMeta[];
 }
 
-/** Load labels for many2one row field (e.g. stage_id → GET crm/stage). */
 function relationForField(meta: FieldMeta[] | undefined, fieldName: string): string | null {
   const m = meta?.find((f) => f.name === fieldName);
-  if (m?.type === "many2one" && m.relation) return m.relation.replace(".", "/");
+  if (m?.type === "many2one" && m.relation) return relationToResource(m.relation);
   return null;
 }
 
 export default function ResourceGraph({ resource, rowField, measureField, fieldMeta }: Props) {
   const { t } = useI18n();
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [labels, setLabels] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-
   const rel = relationForField(fieldMeta, rowField);
 
-  useEffect(() => {
-    setLoading(true);
-    const p = api.get(`/${resource}`, { params: { limit: 200 } });
-    const labelP = rel
-      ? api.get(`/${rel}`, { params: { limit: 200 } })
-      : Promise.resolve({ data: { items: [] } });
-    Promise.all([p, labelP])
-      .then(([listRes, relRes]) => {
-        setRows(listRes.data.items ?? listRes.data ?? []);
-        const items: Record<string, unknown>[] = relRes.data.items ?? relRes.data ?? [];
-        const map: Record<string, string> = {};
-        for (const it of items) {
-          const id = String(it.id ?? "");
-          const name = String(it.name ?? it.id ?? "");
-          if (id) map[id] = name;
-        }
-        setLabels(map);
-      })
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  }, [resource, rel]);
+  const listQuery = useResourceList(resource, { limit: 200 });
+  const labelQuery = useResourceList(rel ?? "", { limit: 200 }, Boolean(rel));
+
+  const rows = listQuery.data?.items ?? [];
+  const loading = (listQuery.isLoading && !listQuery.data)
+    || (Boolean(rel) && labelQuery.isLoading && !labelQuery.data);
+
+  const labels = useMemo(() => {
+    const items = labelQuery.data?.items ?? [];
+    const map: Record<string, string> = {};
+    for (const it of items) {
+      const id = String((it as Record<string, unknown>).id ?? "");
+      const name = String((it as Record<string, unknown>).name ?? id);
+      if (id) map[id] = name;
+    }
+    return map;
+  }, [labelQuery.data]);
 
   const chartData = useMemo(() => {
     const sums = new Map<string, number>();
@@ -81,8 +73,8 @@ export default function ResourceGraph({ resource, rowField, measureField, fieldM
   if (chartData.length === 0) {
     return (
       <EmptyState
-        title={t("no_chart_data_title") || "Nothing to chart yet"}
-        description={t("no_chart_data", { rowField: rowFieldLabel, measureField: measureFieldLabel })}
+        title={t("chart.noData")}
+        description={t("chart.noData", { rowField: rowFieldLabel, measureField: measureFieldLabel })}
       />
     );
   }
@@ -91,7 +83,7 @@ export default function ResourceGraph({ resource, rowField, measureField, fieldM
 
   return (
     <Stack gap="md">
-      <Title order={4}>{t("chart_by", { field: rowFieldLabel })}</Title>
+      <Title order={4}>{t("chart.by", { field: rowFieldLabel })}</Title>
       <Stack gap="xs">
         {chartData
           .sort((a, b) => b.value - a.value)

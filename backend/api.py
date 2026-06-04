@@ -139,15 +139,56 @@ async def _seed_superadmin(default_tenant_id: "uuid.UUID") -> None:  # type: ign
             )
 
 
+async def _maybe_apply_demo_seed() -> None:
+    """Optional curated demo dataset (``SEED_DEMO_DATA`` / ``RESET_DEMO_DATA``)."""
+    if not settings.seed_demo_data and not settings.reset_demo_data:
+        return
+    if settings.environment.lower() == "production" and settings.reset_demo_data:
+        logger.error("RESET_DEMO_DATA is disabled in production — skipping demo reset")
+        return
+    from orbiteus_core.demo_seed import run_demo_seed_pipeline
+
+    try:
+        result = await run_demo_seed_pipeline(
+            reset=settings.reset_demo_data,
+            force=settings.reset_demo_data,
+        )
+        logger.info("Demo seed pipeline finished: %s", result.get("seed", result))
+    except Exception:
+        logger.exception("demo_seed.pipeline_failed")
+
+
+async def _seed_default_roles() -> None:
+    """Ensure built-in RBAC roles exist (idempotent)."""
+    from orbiteus_core.context import RequestContext
+    from orbiteus_core.db import AsyncSessionFactory
+    from modules.base.roles_seed import seed_default_roles
+
+    ctx = RequestContext(is_superadmin=True)
+    async with AsyncSessionFactory() as session:
+        await seed_default_roles(session, ctx)
+        await session.commit()
+
+
+async def _seed_default_agents(default_tenant_id: "uuid.UUID") -> None:  # type: ignore[name-defined]
+    """Ensure showcase AI agents exist for the default tenant (idempotent)."""
+    from orbiteus_core.db import AsyncSessionFactory
+    from modules.base.agents_seed import seed_default_agents
+
+    async with AsyncSessionFactory() as session:
+        await seed_default_agents(session, tenant_id=default_tenant_id)
+        await session.commit()
+
+
 async def _seed_branding() -> None:
     """Insert default branding params if not present."""
     from orbiteus_core.context import RequestContext
     from orbiteus_core.db import AsyncSessionFactory
-    from modules.base.controller.repositories import IrConfigParamRepository
+    from modules.base.controller.repositories import ConfigParamRepository
 
     ctx = RequestContext(is_superadmin=True)
     async with AsyncSessionFactory() as session:
-        repo = IrConfigParamRepository(session, ctx)
+        repo = ConfigParamRepository(session, ctx)
         for key, value, description in _BRANDING_DEFAULTS:
             existing, _ = await repo.search(domain=[("key", "=", key)], limit=1)
             if not existing:
@@ -161,12 +202,12 @@ async def _reload_rbac_cache() -> None:
     from orbiteus_core.context import RequestContext
     from orbiteus_core.db import AsyncSessionFactory
     from orbiteus_core.security.rbac import reload_access_cache
-    from modules.base.controller.repositories import IrModelAccessRepository, IrRuleRepository
+    from modules.base.controller.repositories import ModelAccessRepository, RecordRuleRepository
 
     ctx = RequestContext(is_superadmin=True)
     async with AsyncSessionFactory() as session:
-        access_repo = IrModelAccessRepository(session, ctx)
-        rule_repo = IrRuleRepository(session, ctx)
+        access_repo = ModelAccessRepository(session, ctx)
+        rule_repo = RecordRuleRepository(session, ctx)
         access_objs, _ = await access_repo.search(limit=10000)
         rule_objs, _ = await rule_repo.search(limit=10000)
 
@@ -233,7 +274,7 @@ def _seed_auto_actions() -> None:
             if model_name not in _model_registry:
                 continue
 
-            # `crm.person` → segment `person`; `base.ir-model` → `ir-model`.
+            # `crm.person` → segment `person`; `base.registry-model` → `ir-model`.
             segment = model_name.split(".", 1)[1] if "." in model_name else model_name
             label = segment.replace("-", " ").replace("_", " ").title()
             list_id = f"{model_name}.list"
@@ -284,7 +325,7 @@ def _seed_auto_actions() -> None:
         )
 
 
-async def _bootstrap_modules() -> None:
+async def _bootstrap_modules(tenant_id: "uuid.UUID | None" = None) -> None:
     """Run each module's `bootstrap.on_install()` once per fresh tenant.
 
     Replaces the legacy `_seed_crm_defaults` (PR 9 / ADR-0008). Modules
@@ -295,7 +336,7 @@ async def _bootstrap_modules() -> None:
     from orbiteus_core.context import RequestContext
     from orbiteus_core.db import AsyncSessionFactory
 
-    ctx = RequestContext(is_superadmin=True)
+    ctx = RequestContext(is_superadmin=True, tenant_id=tenant_id)
     bootstrap_paths: list[str] = []
     for mod_name in registry.loaded_modules:
         try:
@@ -326,15 +367,22 @@ async def lifespan(app: FastAPI):
     await _create_tables()
     default_tenant_id = await _seed_default_tenant()
     await _seed_superadmin(default_tenant_id)
+    await _seed_default_roles()
+    await _seed_default_agents(default_tenant_id)
     await _seed_branding()
     await registry.seed_security_to_db()
     await registry.seed_views_to_db()
-    await _bootstrap_modules()
+    await _bootstrap_modules(default_tenant_id)
+    await registry.seed_registry_to_db()
+    await _maybe_apply_demo_seed()
     # Pull RBAC matrix from DB and push to Redis (+ publish invalidate so
     # other replicas refresh their L1).
     await _reload_rbac_cache()
+    from orbiteus_core.attachment_dispatcher import register_attachment_dispatcher
+
+    register_attachment_dispatcher()
     # Wire EventBus → RBAC reload bridge so any future mutation of
-    # ir_model_access / ir_rules in any replica fans out invalidation.
+    # base_model_access / base_rules in any replica fans out invalidation.
     from orbiteus_core.security.rbac import register_rbac_invalidator, start_invalidator
     register_rbac_invalidator()
     # Background pub/sub listener — refreshes L1 cache cross-replica
@@ -389,8 +437,8 @@ def create_app() -> FastAPI:
     # Register modules (order matters for depends_on – registry sorts them)
     # ---------------------------------------------------------------------------
     registry.register("base")
+    registry.register("locales")
     registry.register("auth")
-    registry.register("crm")
 
     # Bootstrap: load mappings, register routes, seed security
     registry.bootstrap(app)
@@ -398,6 +446,9 @@ def create_app() -> FastAPI:
     # Wire the outbox dispatcher onto record.* events (PR 4 / ADR-0010).
     from orbiteus_core.outbox_dispatcher import register_dispatchers
     register_dispatchers()
+
+    from orbiteus_core.embedding_dispatcher import register_embedding_dispatcher
+    register_embedding_dispatcher()
 
     # Wire the realtime publishers (PR 7 / ADR-0006, ADR-0014).
     from orbiteus_core.realtime import register_realtime_publishers

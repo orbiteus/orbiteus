@@ -16,7 +16,10 @@ import {
 } from "@mantine/core";
 import { IconSearch, IconPlus, IconList,
          IconChartBar, IconBolt, IconHistory } from "@tabler/icons-react";
+import { useT } from "@orbiteus/i18n";
 import { api } from "@/lib/api";
+import { isAllowedAppPath } from "@/lib/knownModels";
+import { useUiConfig } from "@/lib/queries/uiConfig";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,13 +44,14 @@ interface ScoredAction {
 const RECENT_STORAGE_KEY = "orbiteus.commandPalette.recent";
 const RECENT_MAX = 5;
 
-function loadRecentActions(): ActionResult[] {
+function loadRecentActions(uiConfig: ReturnType<typeof useUiConfig>["data"]): ActionResult[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(RECENT_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ActionResult[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((a) => isAllowedAppPath(a.target_url, uiConfig));
   } catch {
     return [];
   }
@@ -55,7 +59,18 @@ function loadRecentActions(): ActionResult[] {
 
 function rememberAction(action: ActionResult) {
   if (typeof window === "undefined") return;
-  const prev = loadRecentActions().filter((a) => a.id !== action.id);
+  let prev: ActionResult[] = [];
+  try {
+    const raw = localStorage.getItem(RECENT_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as ActionResult[];
+      if (Array.isArray(parsed)) {
+        prev = parsed.filter((a) => a.id !== action.id);
+      }
+    }
+  } catch {
+    prev = [];
+  }
   prev.unshift(action);
   try {
     localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(prev.slice(0, RECENT_MAX)));
@@ -68,13 +83,7 @@ function rememberAction(action: ActionResult) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const CATEGORY_LABELS: Record<string, string> = {
-  navigate: "Navigate",
-  create:   "Create",
-  report:   "Reports",
-  execute:  "Execute",
-  search:   "Search",
-};
+const KNOWN_CATEGORIES = new Set(["navigate", "create", "report", "execute", "search"]);
 
 const CATEGORY_ORDER = ["create", "navigate", "search", "report", "execute"];
 
@@ -114,7 +123,9 @@ function groupByCategory(results: ScoredAction[]): Map<string, ScoredAction[]> {
 // ---------------------------------------------------------------------------
 
 export default function CommandPalette() {
+  const t = useT();
   const router = useRouter();
+  const uiConfig = useUiConfig();
   const [opened, setOpened] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ScoredAction[]>([]);
@@ -147,11 +158,11 @@ export default function CommandPalette() {
       wasSearchRef.current = false;
       setQuery("");
       setResults([]);
-      setRecentPlain(loadRecentActions());
+      setRecentPlain(loadRecentActions(uiConfig.data));
       setActiveIdx(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [opened]);
+  }, [opened, uiConfig.data]);
 
   // ---- Debounced search ----
   useEffect(() => {
@@ -210,6 +221,10 @@ export default function CommandPalette() {
   }
 
   const execute = useCallback((action: ActionResult) => {
+    if (!isAllowedAppPath(action.target_url, uiConfig.data)) {
+      setOpened(false);
+      return;
+    }
     rememberAction(action);
     setOpened(false);
     if (action.target === "navigate" || action.target === "modal") {
@@ -217,7 +232,7 @@ export default function CommandPalette() {
     } else if (action.target === "execute" && action.target_url) {
       router.push(action.target_url);
     }
-  }, [router]);
+  }, [router, uiConfig.data]);
 
   const grouped = groupByCategory(results);
 
@@ -255,7 +270,7 @@ export default function CommandPalette() {
       >
         <TextInput
           ref={inputRef}
-          placeholder="What do you want to do? (Cmd+K)"
+          placeholder={t("palette.ask")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onInputKeyDown}
@@ -281,13 +296,13 @@ export default function CommandPalette() {
       <Box style={{ maxHeight: 400, overflowY: "auto" }} p="xs">
         {query.trim().length > 0 && results.length === 0 && !loading && (
           <Text size="sm" c="dimmed" ta="center" py="md">
-            No results for &quot;{query}&quot;
+            {t("palette.noResultsFor", { query })}
           </Text>
         )}
 
         {query.trim().length === 0 && recentPlain.length === 0 && !loading && (
           <Text size="xs" c="dimmed" ta="center" py="sm">
-            Start typing to search actions…
+            {t("palette.startTyping")}
           </Text>
         )}
 
@@ -297,7 +312,7 @@ export default function CommandPalette() {
               size="xs" fw={700} tt="uppercase" c="dimmed" px={8} pb={4}
               style={{ letterSpacing: "0.06em" }}
             >
-              Recent
+              {t("palette.recent")}
             </Text>
             {recentPlain.map((action, idx) => {
               const isActive = idx === activeIdx;
@@ -311,18 +326,18 @@ export default function CommandPalette() {
                   style={{
                     borderRadius: "var(--mantine-radius-sm)",
                     background: isActive
-                      ? "var(--mantine-color-blue-0)"
+                      ? "var(--mantine-color-dark-0)"
                       : "transparent",
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
                   }}
                 >
-                  <Box c={isActive ? "blue" : "dimmed"} style={{ lineHeight: 1 }}>
+                  <Box c={isActive ? "dark" : "dimmed"} style={{ lineHeight: 1 }}>
                     <IconHistory size={14} stroke={1.5} />
                   </Box>
                   <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="sm" c={isActive ? "blue.9" : "dimmed"} truncate>
+                    <Text size="sm" c={isActive ? "dark.9" : "dimmed"} truncate>
                       {action.label}
                     </Text>
                     {action.description && (
@@ -351,7 +366,7 @@ export default function CommandPalette() {
               size="xs" fw={700} tt="uppercase" c="dimmed" px={8} pb={4}
               style={{ letterSpacing: "0.06em" }}
             >
-              {CATEGORY_LABELS[category] ?? category}
+              {KNOWN_CATEGORIES.has(category) ? t(`palette.category.${category}`) : category}
             </Text>
             {items.map((item) => {
               const idx = indexMap.get(item.action.id) ?? 0;
@@ -366,18 +381,18 @@ export default function CommandPalette() {
                   style={{
                     borderRadius: "var(--mantine-radius-sm)",
                     background: isActive
-                      ? "var(--mantine-color-blue-0)"
+                      ? "var(--mantine-color-dark-0)"
                       : "transparent",
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
                   }}
                 >
-                  <Box c={isActive ? "blue" : "dimmed"} style={{ lineHeight: 1 }}>
+                  <Box c={isActive ? "dark" : "dimmed"} style={{ lineHeight: 1 }}>
                     <CategoryIcon category={category} />
                   </Box>
                   <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="sm" c={isActive ? "blue.9" : "dimmed"} truncate>
+                    <Text size="sm" c={isActive ? "dark.9" : "dimmed"} truncate>
                       {item.action.label}
                     </Text>
                     {item.action.description && (
@@ -411,7 +426,7 @@ export default function CommandPalette() {
             gap: 12,
           }}
         >
-          {[["↑↓", "navigate"], ["↵", "open"], ["Esc", "close"]].map(([key, hint]) => (
+          {[["↑↓", t("palette.hint.navigate")], ["↵", t("palette.hint.open")], ["Esc", t("palette.hint.close")]].map(([key, hint]) => (
             <Group key={key} gap={4}>
               <Badge size="xs" variant="default" style={{ fontFamily: "monospace" }}>{key}</Badge>
               <Text size="xs" c="dimmed">{hint}</Text>

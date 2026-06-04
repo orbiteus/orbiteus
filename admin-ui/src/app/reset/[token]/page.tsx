@@ -16,6 +16,7 @@ import {
   Title,
 } from "@mantine/core";
 import { IconAlertCircle, IconCircleCheck } from "@tabler/icons-react";
+import { useT } from "@orbiteus/i18n";
 import { api } from "@/lib/api";
 
 /**
@@ -25,6 +26,7 @@ import { api } from "@/lib/api";
  * `/reset/` prefix so unauthenticated visitors can land here.
  */
 export default function ResetPasswordPage() {
+  const t = useT();
   const router = useRouter();
   const params = useParams<{ token: string }>();
   const token = typeof params?.token === "string" ? params.token : "";
@@ -39,11 +41,11 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError(null);
     if (pw1.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("auth.reset.minLength"));
       return;
     }
     if (pw1 !== pw2) {
-      setError("Passwords do not match.");
+      setError(t("auth.reset.noMatch"));
       return;
     }
     setLoading(true);
@@ -57,7 +59,7 @@ export default function ResetPasswordPage() {
     } catch (err: unknown) {
       // Backend returns 401 for invalid/expired/already-used tokens
       // and 400 for too-short passwords. Anything else is a 500.
-      let message = "Could not reset password. The link may have expired.";
+      let message = t("auth.reset.failed");
       if (typeof err === "object" && err !== null && "response" in err) {
         const r = (err as { response?: { data?: { detail?: string } } }).response;
         if (r?.data?.detail) {
@@ -74,8 +76,7 @@ export default function ResetPasswordPage() {
     return (
       <Container size="sm" py="xl">
         <Alert color="red" icon={<IconAlertCircle size={18} />}>
-          Reset link is missing the token. Please use the link from the email
-          you received, or request a new one.
+          {t("auth.reset.missingToken")}
         </Alert>
       </Container>
     );
@@ -86,24 +87,24 @@ export default function ResetPasswordPage() {
       <Container size="sm" py="xl">
         <Card shadow="sm" padding="xl" radius="md" withBorder>
           <Stack gap="md">
-            <Title order={2}>Set a new password</Title>
+            <Title order={2}>{t("auth.reset.title")}</Title>
             {success ? (
               <Alert color="green" icon={<IconCircleCheck size={18} />}>
-                Password updated. Redirecting to sign-in…
+                {t("auth.reset.success")}
               </Alert>
             ) : (
               <form onSubmit={handleSubmit}>
                 <Stack gap="sm">
-                  <Text>Choose a new password for your account.</Text>
+                  <Text>{t("auth.reset.intro")}</Text>
                   <PasswordInput
-                    label="New password"
+                    label={t("auth.reset.newPassword")}
                     value={pw1}
                     onChange={(e) => setPw1(e.target.value)}
                     required
                     autoFocus
                   />
                   <PasswordInput
-                    label="Confirm new password"
+                    label={t("auth.reset.confirmPassword")}
                     value={pw2}
                     onChange={(e) => setPw2(e.target.value)}
                     required
@@ -115,10 +116,10 @@ export default function ResetPasswordPage() {
                   ) : null}
                   <Group justify="space-between" mt="xs">
                     <Anchor href="/forgot-password" size="sm" c="dark">
-                      Request a new link
+                      {t("auth.reset.requestNew")}
                     </Anchor>
                     <Button type="submit" loading={loading} color="dark">
-                      Update password
+                      {t("auth.reset.updatePassword")}
                     </Button>
                   </Group>
                 </Stack>

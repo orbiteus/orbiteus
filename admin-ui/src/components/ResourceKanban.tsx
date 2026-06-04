@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   type DragStartEvent, type DragEndEvent, closestCorners,
@@ -14,8 +14,10 @@ import {
 } from "@mantine/core";
 import { IconPlus, IconAlertCircle } from "@tabler/icons-react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { useT } from "@orbiteus/i18n";
 import EmptyState from "@/components/EmptyState";
+import { useResourceList } from "@/lib/queries/resources";
+import { extractApiError } from "@/lib/api";
 
 interface KanbanGroup {
   id: string;
@@ -31,17 +33,16 @@ interface KanbanItem {
 
 interface Props {
   title: string;
-  groupsResource: string;               // GET /api/{groupsResource} → groups
-  itemsResource: string;                // GET /api/{itemsResource}?{groupField}={groupId}
-  groupField: string;                   // field on item linking to group (e.g. "stage_id")
-  titleField: string;                   // field to show as card title
+  groupsResource: string;
+  itemsResource: string;
+  groupField: string;
+  titleField: string;
   subtitleFields?: { key: string; label: string; render?: (v: unknown) => string }[];
   onMove: (itemId: string, newGroupId: string) => Promise<void>;
   createHref?: string;
-  groupByFilter?: Record<string, string>; // extra filter when fetching items
+  groupByFilter?: Record<string, string>;
 }
 
-// ── Draggable Card ──────────────────────────────────────────────────────────
 function KanbanCard({ item, titleField, subtitleFields, isDragging }: {
   item: KanbanItem;
   titleField: string;
@@ -84,13 +85,13 @@ function KanbanCard({ item, titleField, subtitleFields, isDragging }: {
   );
 }
 
-// ── Column ──────────────────────────────────────────────────────────────────
-function KanbanColumn({ group, items, titleField, subtitleFields, activeId }: {
+function KanbanColumn({ group, items, titleField, subtitleFields, activeId, emptyColumnLabel }: {
   group: KanbanGroup;
   items: KanbanItem[];
   titleField: string;
   subtitleFields?: Props["subtitleFields"];
   activeId: string | null;
+  emptyColumnLabel: string;
 }) {
   return (
     <Stack gap="xs" style={{ minWidth: 260, maxWidth: 300, flex: "0 0 280px" }}>
@@ -129,7 +130,7 @@ function KanbanColumn({ group, items, titleField, subtitleFields, activeId }: {
             ))}
             {items.length === 0 && (
               <Text size="xs" c="dimmed" ta="center" py="md">
-                Drop a card here
+                {emptyColumnLabel}
               </Text>
             )}
           </Stack>
@@ -139,68 +140,78 @@ function KanbanColumn({ group, items, titleField, subtitleFields, activeId }: {
   );
 }
 
-// ── Main Component ──────────────────────────────────────────────────────────
 export default function ResourceKanban({
   title, groupsResource, itemsResource, groupField,
   titleField, subtitleFields, onMove, createHref, groupByFilter,
 }: Props) {
-  const [groups, setGroups] = useState<KanbanGroup[]>([]);
-  const [columns, setColumns] = useState<Record<string, KanbanItem[]>>({});
+  const t = useT();
+  const itemsQuery = useResourceList<KanbanItem>(itemsResource, {
+    limit: 200,
+    ...groupByFilter,
+  });
+
+  const allItems = itemsQuery.data?.items ?? [];
+
+  const dominantPipelineId = useMemo(() => {
+    const pipelineCounts = new Map<string, number>();
+    allItems.forEach((item) => {
+      const pipelineId = item.pipeline_id;
+      if (pipelineId == null || pipelineId === "") return;
+      const key = String(pipelineId);
+      pipelineCounts.set(key, (pipelineCounts.get(key) ?? 0) + 1);
+    });
+    return [...pipelineCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  }, [allItems]);
+
+  const itemsForBoard = useMemo(
+    () =>
+      dominantPipelineId
+        ? allItems.filter((item) => String(item.pipeline_id ?? "") === dominantPipelineId)
+        : allItems,
+    [allItems, dominantPipelineId],
+  );
+
+  const groupsParams = useMemo(
+    () =>
+      dominantPipelineId
+        ? { pipeline_id: dominantPipelineId, limit: 200 }
+        : { limit: 200 },
+    [dominantPipelineId],
+  );
+
+  const groupsQuery = useResourceList<KanbanGroup>(groupsResource, groupsParams);
+
+  const groups = useMemo(
+    () =>
+      [...(groupsQuery.data?.items ?? [])].sort(
+        (a, b) => (a.sequence ?? 0) - (b.sequence ?? 0),
+      ),
+    [groupsQuery.data],
+  );
+
+  const baseColumns = useMemo(() => {
+    const cols: Record<string, KanbanItem[]> = {};
+    groups.forEach((g) => { cols[g.id] = []; });
+    itemsForBoard.forEach((item) => {
+      const gid = String(item[groupField]);
+      if (cols[gid]) cols[gid].push(item);
+    });
+    return cols;
+  }, [groups, itemsForBoard, groupField]);
+
+  const [optimisticColumns, setOptimisticColumns] = useState<Record<string, KanbanItem[]> | null>(null);
+  const columns = optimisticColumns ?? baseColumns;
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<KanbanItem | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+
+  const loading =
+    (itemsQuery.isLoading && !itemsQuery.data)
+    || (groupsQuery.isLoading && !groupsQuery.data);
+  const error = itemsQuery.error ?? groupsQuery.error;
+  const errorMsg = error ? extractApiError(error, t("kanban.errorLoad")) : "";
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-
-  useEffect(() => {
-    load();
-  }, [groupsResource, itemsResource]);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const itemsRes = await api.get(`/${itemsResource}`, { params: { limit: 200, ...groupByFilter } });
-      const allItems: KanbanItem[] = itemsRes.data.items ?? itemsRes.data ?? [];
-
-      // For opportunity boards, keep one coherent pipeline on the board
-      // to avoid fragmented columns when seed/demo data spans many pipelines.
-      const pipelineCounts = new Map<string, number>();
-      allItems.forEach((item) => {
-        const pipelineId = item.pipeline_id;
-        if (pipelineId == null || pipelineId === "") return;
-        const key = String(pipelineId);
-        pipelineCounts.set(key, (pipelineCounts.get(key) ?? 0) + 1);
-      });
-      const dominantPipelineId = [...pipelineCounts.entries()]
-        .sort((a, b) => b[1] - a[1])[0]?.[0];
-
-      const itemsForBoard = dominantPipelineId
-        ? allItems.filter((item) => String(item.pipeline_id ?? "") === dominantPipelineId)
-        : allItems;
-
-      const grpRes = await api.get(`/${groupsResource}`, {
-        params: dominantPipelineId
-          ? { pipeline_id: dominantPipelineId }
-          : undefined,
-      });
-      const grps: KanbanGroup[] = (grpRes.data.items ?? grpRes.data ?? [])
-        .sort((a: KanbanGroup, b: KanbanGroup) => (a.sequence ?? 0) - (b.sequence ?? 0));
-
-      setGroups(grps);
-      const cols: Record<string, KanbanItem[]> = {};
-      grps.forEach((g) => { cols[g.id] = []; });
-      itemsForBoard.forEach((item) => {
-        const gid = String(item[groupField]);
-        if (cols[gid]) cols[gid].push(item);
-      });
-      setColumns(cols);
-    } catch (e: unknown) {
-      setError((e as { message: string }).message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function findGroupForItem(itemId: string): string | null {
     for (const [gid, items] of Object.entries(columns)) {
@@ -226,26 +237,26 @@ export default function ResourceKanban({
     const overId = String(over.id);
 
     const sourceGroup = findGroupForItem(itemId);
-    // overId might be a group id or another item id — find target group
     const targetGroup = columns[overId] !== undefined
       ? overId
       : findGroupForItem(overId);
 
     if (!sourceGroup || !targetGroup || sourceGroup === targetGroup) return;
 
-    // Optimistic update
     const item = columns[sourceGroup].find((i) => i.id === itemId)!;
-    setColumns((prev) => ({
-      ...prev,
-      [sourceGroup]: prev[sourceGroup].filter((i) => i.id !== itemId),
-      [targetGroup]: [...prev[targetGroup], { ...item, [groupField]: targetGroup }],
-    }));
+    setOptimisticColumns({
+      ...columns,
+      [sourceGroup]: columns[sourceGroup].filter((i) => i.id !== itemId),
+      [targetGroup]: [...columns[targetGroup], { ...item, [groupField]: targetGroup }],
+    });
 
     try {
       await onMove(itemId, targetGroup);
+      setOptimisticColumns(null);
     } catch {
-      // Revert on error
-      load();
+      setOptimisticColumns(null);
+      void itemsQuery.refetch();
+      void groupsQuery.refetch();
     }
   }
 
@@ -262,8 +273,8 @@ export default function ResourceKanban({
       </Group>
     );
   }
-  if (error) return <Alert icon={<IconAlertCircle size={16} />} color="red">{error}</Alert>;
-  // Whole-board empty state — when every group has zero cards.
+  if (errorMsg) return <Alert icon={<IconAlertCircle size={16} />} color="red">{errorMsg}</Alert>;
+
   const totalItems = Object.values(columns).reduce((acc, arr) => acc + arr.length, 0);
   if (groups.length === 0 || totalItems === 0) {
     return (
@@ -272,14 +283,14 @@ export default function ResourceKanban({
           <Title order={3}>{title}</Title>
           {createHref && (
             <Button component={Link} href={createHref} leftSection={<IconPlus size={16} />} size="sm">
-              New
+              {t("kanban.new")}
             </Button>
           )}
         </Group>
         <EmptyState
-          title="No records yet"
-          description="Create one to get the board going."
-          ctaLabel={createHref ? "New" : undefined}
+          title={t("list.noRecords")}
+          description={t("kanban.emptyDescription")}
+          ctaLabel={createHref ? t("kanban.new") : undefined}
           ctaHref={createHref}
         />
       </Stack>
@@ -292,7 +303,7 @@ export default function ResourceKanban({
         <Title order={3}>{title}</Title>
         {createHref && (
           <Button component={Link} href={createHref} leftSection={<IconPlus size={16} />} size="sm">
-            New
+            {t("kanban.new")}
           </Button>
         )}
       </Group>
@@ -317,6 +328,7 @@ export default function ResourceKanban({
                 titleField={titleField}
                 subtitleFields={subtitleFields}
                 activeId={activeId}
+                emptyColumnLabel={t("kanban.dropHere")}
               />
             ))}
           </Group>

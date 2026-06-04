@@ -1,0 +1,116 @@
+.compactNav {
+  justify-content: center;
+}
+
+.compactNav :global(.mantine-NavLink-section[data-position="left"]) {
+  margin-inline-end: 0;
+}
+
+.compactNav :global(.mantine-NavLink-label),
+.compactNav :global(.mantine-NavLink-section[data-position="right"]) {
+  display: none;
+}
+
+.compactNav :global(.mantine-NavLink-body) {
+  justify-content: center;
+}
+
+/* —— Drill-down panels —— */
+
+.rootPanel,
+.drillPanel {
+  animation: sidebarDrillIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sidebarDrillIn {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.drillPanel[data-compact] .backRow {
+  width: 100%;
+  justify-content: center;
+}
+
+.drillPanel[data-compact] .parentHeader {
+  width: 100%;
+}
+
+.backRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border-radius: var(--mantine-radius-sm);
+  color: var(--mantine-color-dimmed);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.backRow:hover {
+  background: var(--mantine-color-gray-1);
+  color: var(--mantine-color-text);
+}
+
+:global([data-mantine-color-scheme="dark"]) .backRow:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+.parentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mantine-spacing-xs);
+  padding: 2px 0 10px;
+  margin-bottom: 2px;
+  color: var(--mantine-color-text);
+}
+
+.subLevelFrame {
+  padding: 4px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-default-border);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+:global([data-mantine-color-scheme="dark"]) .subLevelFrame {
+  background: var(--mantine-color-dark-5);
+  border-color: var(--mantine-color-dark-4);
+  box-shadow: none;
+}
+
+.subLevelFrame :global(.mantine-NavLink-root[data-active]) {
+  background: var(--mantine-color-dark-9);
+  color: var(--mantine-color-white);
+}
+
+:global([data-mantine-color-scheme="dark"]) .subLevelFrame :global(.mantine-NavLink-root[data-active]) {
+  background: var(--mantine-color-gray-0);
+  color: var(--mantine-color-dark-9);
+}
+
+.groupLabel {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mantine-color-dimmed);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-sm) 6px;
+}
+
+.chevron {
+  opacity: 0.45;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+:global(.mantine-NavLink-root:hover) .chevron {
+  opacity: 0.85;
+  transform: translateX(2px);
+}

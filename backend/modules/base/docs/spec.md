@@ -5,14 +5,14 @@
 >
 > **Canonical sources:**
 > - `docs/03-modules.md` — module convention (manifest / model / controller / view)
-> - `docs/04-data-model.md` — `BaseModel`, `SystemModel`, `ir_*`
+> - `docs/04-data-model.md` — `BaseModel`, `SystemModel`, `base_*`
 > - `docs/05-rbac-multitenancy.md` — RBAC + `tenant_id`
-> - `docs/14-audit.md` — `ir_audit_log` and audit policy
+> - `docs/14-audit.md` — `base_audit_log` and audit policy
 
 ## Purpose
 
 `modules/base/` ships the system tables and the Identity & Resources
-(`ir_*`) primitives every other module relies on. It is `auto_install =
+(`base_*`) primitives every other module relies on. It is `auto_install =
 True` and always installed first.
 
 ## Models
@@ -22,19 +22,19 @@ True` and always installed first.
 | `Tenant`          | `tenants`              | Multi-tenancy root. No `tenant_id` (it *is* one). |
 | `Company`         | `companies`            | Companies inside a tenant.                         |
 | `User`            | `users`                | Login identity, JWT subject.                       |
-| `Partner`         | `partners`             | Customers, vendors, contacts.                      |
-| `IrModel`         | `ir_model`             | Catalogue of business models.                      |
-| `IrModelAccess`   | `ir_model_access`      | Role × model × {read, write, create, unlink}.      |
-| `IrRule`          | `ir_rule`              | Domain expressions filtering rows per role.        |
-| `IrConfigParam`   | `ir_config_param`      | Global key-value config.                           |
-| `IrSequence`      | `ir_sequence`          | Document numbering generator.                      |
-| `IrAttachment`    | `ir_attachment`        | File attachments metadata.                         |
-| `IrCron`          | `ir_cron`              | Cron rows consumed by Celery Beat.                 |
-| `IrAuditLog`      | `ir_audit_log`         | Mandatory audit trail (ADR-0014).                  |
-| `IrOutbox`        | `ir_outbox`            | Postgres Outbox for durable side effects.          |
-| `IrWebhook`       | `ir_webhooks`          | Outbound webhook subscribers.                      |
-| `IrAiCredential`  | `ir_ai_credentials`    | BYOK AI keys (Fernet at rest).                     |
-| `IrEmbedding`     | `ir_embeddings`        | pgvector store with HNSW index.                    |
+| `Role`            | `base_roles`           | Named RBAC groups (technical `code`).              |
+| `RegistryModel`         | `base_model`             | Catalogue of business models.                      |
+| `ModelAccess`   | `base_model_access`      | Role × model × {read, write, create, unlink}.      |
+| `RecordRule`          | `base_rule`              | Domain expressions filtering rows per role.        |
+| `ConfigParam`   | `base_config_param`      | Global key-value config.                           |
+| `Attachment`    | `base_attachment`        | File attachments metadata.                         |
+| `AuditLog`      | `base_audit_log`         | Mandatory audit trail (ADR-0014).                  |
+| `Outbox`        | `base_outbox`            | Postgres Outbox for durable side effects.          |
+| `Webhook`       | `base_webhooks`          | Outbound webhook subscribers.                      |
+| `AiCredential`  | `base_ai_credentials`    | BYOK AI keys (Fernet at rest).                     |
+| `EmbeddingRecord`     | `base_embeddings`        | pgvector store with HNSW index.                    |
+| `Agent`         | `base_agents`            | Named AI persona + scoped tools (ADR-0018).        |
+| `AgentRun`      | `base_agent_runs`        | Agent execution ledger.                            |
 
 ## Endpoints
 
@@ -45,6 +45,7 @@ small set of curated routes:
 - `GET  /api/base/branding`      — tenant branding (logo, name, favicon)
 - `GET  /api/base/ui-config`     — registry-driven UI metadata
 - `GET  /api/base/audit-log`     — paginated, RBAC-gated audit reader
+- `GET/POST/DELETE /api/base/attachments` — filestore-backed attachments (see `docs/07-api.md`)
 
 ## Bootstrap
 

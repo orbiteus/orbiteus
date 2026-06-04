@@ -6,7 +6,7 @@ Lifecycle per module registration:
   3. load_mappings()    – call module.model.mapping.setup() → SQLAlchemy Tables registered
   4. register_security()– load security/access.yaml (YAML) OR controller.security.setup() (legacy)
   5. register_routes()  – auto-generate CRUD routers + attach module.controller.router
-  6. register_menus()   – seed ir_ui_menu entries
+  6. register_menus()   – seed base_ui_menus entries
 
 Usage in api.py:
     from orbiteus_core.registry import registry
@@ -15,7 +15,6 @@ Usage in api.py:
     app = FastAPI()
     registry.register("base")
     registry.register("auth")
-    registry.register("crm")
     registry.bootstrap(app)
 """
 from __future__ import annotations
@@ -95,8 +94,16 @@ class ModuleRegistry:
             self._register_security(desc)
             self._load_views(desc)
             self._register_actions(desc)
+            self._register_ai(desc)
             self._register_routes(app, desc)
             self._register_menus(desc)
+
+        for name in self._load_order:
+            self._load_i18n(self._modules[name])
+
+        from orbiteus_core.i18n_registry import require_base_english_catalog
+
+        require_base_english_catalog()
 
         self._bootstrapped = True
         logger.info(
@@ -110,7 +117,7 @@ class ModuleRegistry:
         return self._modules[name]
 
     async def seed_security_to_db(self) -> None:
-        """Persist YAML-sourced security configs to ir_model_access + ir_rules tables.
+        """Persist YAML-sourced security configs to base_model_access + base_rules tables.
 
         Called once from FastAPI startup event (after DB is reachable).
         Idempotent – upserts existing records.
@@ -134,28 +141,55 @@ class ModuleRegistry:
         logger.info("Security seeded to DB for all YAML modules.")
 
     async def seed_views_to_db(self) -> None:
-        """Persist XML view definitions to ir_ui_views table.
+        """Persist view definitions (JSON primary, XML legacy) to base_ui_views.
 
         Called once from FastAPI startup event (after DB is reachable).
         Idempotent – upserts existing views by name.
         """
         from orbiteus_core.context import RequestContext
         from orbiteus_core.db import AsyncSessionFactory
+        from orbiteus_core.json_views import seed_json_views_to_db
         from orbiteus_core.view_loader import seed_views_to_db
 
         ctx = RequestContext(is_superadmin=True)
         async with AsyncSessionFactory() as session:
             for name in self._load_order:
                 desc = self._modules[name]
-                views = getattr(desc, "_view_definitions", None)
-                if not views:
-                    continue
-                try:
-                    await seed_views_to_db(views, session, ctx)
-                except Exception as e:
-                    logger.warning("Could not seed views to DB for '%s': %s", name, e)
+                json_views = getattr(desc, "_json_view_definitions", None)
+                if json_views:
+                    try:
+                        await seed_json_views_to_db(json_views, name, session, ctx)
+                    except Exception as e:
+                        logger.warning(
+                            "Could not seed JSON views to DB for '%s': %s", name, e,
+                        )
+                xml_views = getattr(desc, "_view_definitions", None)
+                if xml_views:
+                    try:
+                        await seed_views_to_db(xml_views, session, ctx)
+                    except Exception as e:
+                        logger.warning(
+                            "Could not seed XML views to DB for '%s': %s", name, e,
+                        )
             await session.commit()
         logger.info("Views seeded to DB for all modules.")
+
+    async def seed_registry_to_db(self) -> None:
+        """Persist auto-CRUD model catalogue to base_models / base_model_fields."""
+        from orbiteus_core.context import RequestContext
+        from orbiteus_core.db import AsyncSessionFactory
+        from orbiteus_core.registry_loader import seed_registry_to_db
+
+        ctx = RequestContext(is_superadmin=True)
+        async with AsyncSessionFactory() as session:
+            try:
+                await seed_registry_to_db(session, ctx)
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                logger.warning("Could not seed registry metadata to DB: %s", e)
+                raise
+        logger.info("Registry metadata seeded to DB.")
 
     def get_all_views(self) -> dict[str, Any]:
         """Return all registered view definitions as a flat dict keyed by view name."""
@@ -164,6 +198,17 @@ class ModuleRegistry:
             desc = self._modules[name]
             for view in getattr(desc, "_view_definitions", []):
                 result[view.name] = view
+        return result
+
+    def get_all_json_views(self) -> dict[str, dict[str, dict[str, Any]]]:
+        """Return JSON views keyed by model name then view type (list/form/…)."""
+        from orbiteus_core.json_views import view_to_ui_payload
+
+        result: dict[str, dict[str, dict[str, Any]]] = {}
+        for name in self._load_order:
+            desc = self._modules[name]
+            for view in getattr(desc, "_json_view_definitions", []):
+                result.setdefault(view.model, {})[view.type] = view_to_ui_payload(view)
         return result
 
     @property
@@ -304,45 +349,68 @@ class ModuleRegistry:
             )
 
     def _load_views(self, desc: ModuleDescriptor) -> None:
-        """Parse XML view files listed in manifest data[] and cache them on descriptor.
+        """Load JSON views (primary) and XML views (deprecated fallback) from manifest data[].
 
-        Only processes .xml files; .yaml files are handled by _register_security.
-        Stores parsed ViewDefinition objects in desc._view_definitions for later
-        DB seeding via seed_views_to_db().
+        JSON: `*.view.json` → desc._json_view_definitions
+        XML:  `*.xml`       → desc._view_definitions (legacy)
         """
+        from orbiteus_core.json_views import load_json_view
         from orbiteus_core.view_loader import load_xml_views
 
         data_files: list[str] = desc.manifest.get("data", [])
+        json_files = [f for f in data_files if f.endswith(".view.json")]
         xml_files = [f for f in data_files if f.endswith(".xml")]
 
-        if not xml_files:
+        if not json_files and not xml_files:
             return
 
         module_path = self._module_path(desc)
-        all_views = []
 
-        for rel_path in xml_files:
-            xml_path = module_path / rel_path
-            try:
-                views = load_xml_views(xml_path, desc.name)
-                all_views.extend(views)
-            except FileNotFoundError:
-                logger.warning("Module '%s': view file not found: %s", desc.name, xml_path)
-            except Exception as e:
-                logger.error(
-                    "Module '%s': failed to load views from %s: %s",
-                    desc.name,
-                    xml_path,
-                    e,
+        if json_files:
+            json_views = []
+            for rel_path in json_files:
+                json_path = module_path / rel_path
+                try:
+                    json_views.append(load_json_view(json_path, desc.name))
+                except FileNotFoundError:
+                    logger.warning(
+                        "Module '%s': JSON view not found: %s", desc.name, json_path,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Module '%s': failed to load JSON view %s: %s",
+                        desc.name, json_path, e,
+                    )
+                    raise
+            if json_views:
+                desc._json_view_definitions = json_views
+                logger.info(
+                    "Module '%s' loaded %d JSON view definitions",
+                    desc.name, len(json_views),
                 )
-                raise
 
-        if all_views:
-            desc._view_definitions = all_views
-            logger.info(
-                "Module '%s' loaded %d view definitions from XML",
-                desc.name, len(all_views),
-            )
+        if xml_files:
+            all_views = []
+            for rel_path in xml_files:
+                xml_path = module_path / rel_path
+                try:
+                    all_views.extend(load_xml_views(xml_path, desc.name))
+                except FileNotFoundError:
+                    logger.warning(
+                        "Module '%s': XML view not found: %s", desc.name, xml_path,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Module '%s': failed to load XML views from %s: %s",
+                        desc.name, xml_path, e,
+                    )
+                    raise
+            if all_views:
+                desc._view_definitions = all_views
+                logger.info(
+                    "Module '%s' loaded %d legacy XML view definitions",
+                    desc.name, len(all_views),
+                )
 
     def _register_actions(self, desc: ModuleDescriptor) -> None:
         """Load actions.py from the module and register them in ActionRegistry.
@@ -364,8 +432,29 @@ class ModuleRegistry:
         from orbiteus_core.ai.registry import action_registry
         action_registry.register_module(desc.name, actions)
 
+    def _register_ai(self, desc: ModuleDescriptor) -> None:
+        """Load ai.py from the module and register AIModuleConfig."""
+        try:
+            mod = importlib.import_module(f"modules.{desc.name}.ai")
+        except ImportError:
+            return
+
+        config = getattr(mod, "AI", None)
+        if config is None:
+            logger.debug("Module '%s' has no AI in ai.py — skipping.", desc.name)
+            return
+
+        from orbiteus_core.ai.config import ai_registry
+
+        ai_registry.register(desc.name, config)
+        logger.info(
+            "Module '%s' registered AI config (%d accessible models)",
+            desc.name,
+            len(config.accessible_models),
+        )
+
     def _register_menus(self, desc: ModuleDescriptor) -> None:
-        """Seed ir_ui_menu entries defined in the module manifest."""
+        """Seed base_ui_menus entries defined in the module manifest."""
         menus = desc.manifest.get("menus", [])
         if menus:
             logger.debug(
@@ -373,6 +462,24 @@ class ModuleRegistry:
                 desc.name,
                 len(menus),
             )
+
+    def _load_i18n(self, desc: ModuleDescriptor) -> None:
+        """Load ``i18n/*.json`` catalogs and locale metadata from module manifest."""
+        from orbiteus_core.i18n_loader import discover_module_i18n, parse_locale_meta
+        from orbiteus_core.i18n_registry import register_locale_meta, register_module_messages
+
+        module_path = self._module_path(desc)
+        for _mod, lang, messages in discover_module_i18n(module_path, desc.manifest):
+            register_module_messages(desc.name, lang, messages)
+            logger.info(
+                "Module '%s' registered %d UI messages for '%s'",
+                desc.name,
+                len(messages),
+                lang,
+            )
+        meta = parse_locale_meta(desc.manifest)
+        if meta:
+            register_locale_meta(meta, module=desc.name)
 
 
 # Singleton – import and use everywhere

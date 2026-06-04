@@ -82,7 +82,7 @@ Backend:
   before_unlink / after_unlink` hooks in `BaseRepository`.
 - Add `created_by_id`, `modified_by_id` columns in `BaseModel` + Alembic
   migration.
-- Add `ir_audit_log` table + Pydantic schemas + repository.
+- Add `base_audit_log` table + Pydantic schemas + repository.
 - Wire mandatory audit hook (opt-out list per module).
 - Add `/api/base/audit-log` paginated endpoint.
 
@@ -91,11 +91,11 @@ Tests:
 - `test_hooks.py` — before/after order, data flow.
 - `test_audit.py` — every CRUD writes a row, diff shape, redaction of
   `password_hash`.
-- `test_audit_optout.py` — `ir_audit_log` itself is excluded from logging.
+- `test_audit_optout.py` — `base_audit_log` itself is excluded from logging.
 
 ADRs: cite 0010.
 
-**DoD:** running CRM CRUD writes `ir_audit_log` rows; tests prove diff and
+**DoD:** running CRM CRUD writes `base_audit_log` rows; tests prove diff and
 opt-out.
 
 ---
@@ -105,18 +105,18 @@ opt-out.
 Backend:
 
 - `orbiteus_core/events.py` — in-process EventBus (async pub/sub).
-- `ir_outbox` table + repository + Pydantic schemas.
+- `base_outbox` table + repository + Pydantic schemas.
 - Outbox writes happen inside the same transaction as business writes
   (BaseRepository emits `record.created/updated/deleted` to the EventBus,
-  one subscriber writes to `ir_outbox` if a webhook subscriber exists).
-- `ir_webhook` table (tenant_id, url, secret, event_mask).
+  one subscriber writes to `base_outbox` if a webhook subscriber exists).
+- `base_webhook` table (tenant_id, url, secret, event_mask).
 
 Tests:
 
 - `test_eventbus.py` — subscribers fire in order, errors isolated.
 - `test_outbox.py` — atomic with business commit; rollback drops the outbox row.
 
-**DoD:** create + `ir_webhook` row → outbox row appears in same transaction.
+**DoD:** create + `base_webhook` row → outbox row appears in same transaction.
 
 ---
 
@@ -128,7 +128,7 @@ Backend / infra:
 - `backend/celery_app.py` with Redis broker + result backend.
 - Outbox drainer Celery task (idempotent, exponential backoff).
 - Webhook delivery Celery task with HMAC-SHA256 signature.
-- Celery Beat reads `ir_cron` and schedules.
+- Celery Beat reads `base_cron` and schedules.
 - Compose: `worker` and `beat` services (separate replicas).
 - Replace any leftover `worker.py` Temporal stubs with Celery (see ADR-0015);
   update README accordingly.
@@ -136,7 +136,7 @@ Backend / infra:
 Tests:
 
 - `test_outbox_drainer.py` — pending → done; failing → retry → dead after 10.
-- `test_celery_beat.py` — `ir_cron` row schedules a recurring task.
+- `test_celery_beat.py` — `base_cron` row schedules a recurring task.
 
 ADRs: 0013, 0015.
 
@@ -202,14 +202,14 @@ ADRs: 0006, 0014.
 Backend:
 
 - `orbiteus_core/ai/providers/{base,anthropic,openai,ollama}.py`.
-- `ir_ai_credential` table + Fernet encryption (`AI_SECRET_KEY`).
+- `base_ai_credential` table + Fernet encryption (`AI_SECRET_KEY`).
 - `POST/GET/DELETE /api/ai/credentials` (with provider ping on POST).
 - `AIModuleConfig` dataclass + `AIRegistry`; load from each module's `ai.py`.
 - `orbiteus_core/ai/context.py` — `AIContextBuilder`.
 - `orbiteus_core/ai/tools.py` — Action, QueryTool, semantic_search.
 - `orbiteus_core/ai/budget.py` — Redis counters per tenant per month.
 - `orbiteus_core/ai/redaction.py` — PII redaction before remote calls.
-- `pgvector` extension + `ir_embedding` table + HNSW index.
+- `pgvector` extension + `base_embedding` table + HNSW index.
 - Embeddings refresh via Outbox-driven Celery task.
 - `/api/ai/chat` streaming endpoint with provider tool calling.
 - `/api/ai/dashboard` endpoint.
@@ -218,7 +218,7 @@ Tests:
 
 - `test_ai_credentials.py` — Fernet roundtrip, provider ping mocked.
 - `test_ai_tools.py` — Action and QueryTool exposed correctly per RBAC.
-- `test_ai_audit.py` — every tool call writes `ir_audit_log` with `actor=ai`.
+- `test_ai_audit.py` — every tool call writes `base_audit_log` with `actor=ai`.
 - `test_ai_budget.py` — exceeding budget returns `429 AI Budget Exceeded`.
 - `test_pgvector.py` — index creation and similarity ranking.
 - `test_ai_dashboard.py` — chart spec response well-formed against aggregate.
@@ -354,6 +354,26 @@ the runbook.
 - Tag `v1.0.0`.
 
 **DoD:** v1.0 published; demo updated.
+
+---
+
+## Wave 7 — Agent UX and CRM showcase (2026-05)
+
+Post-v1.0 work aligned with `docs/22-implementation-plan.md` Wave 7:
+
+1. **Repositioning** — ADR-0021, `docs/01-engine-positioning.md`: engine for
+   domain apps; **CRM = sole in-repo showcase module** (module = domain app).
+2. **TanStack Query** — ADR-0020; list/form/kanban/calendar/graph + mutations
+   in `admin-ui`; prefetch on row hover; leader-tab SSE invalidation unchanged.
+3. **Spec-driven workflow** — `docs/39`, `modules-spec-template.md`.
+4. **Reference product** — `docs/40-reference-product-caltrain.md` (external
+   LadiesGym product; patterns copied, code not merged).
+5. **GET one `?expand=`** — many2one labels on edit forms without N+1 toasts.
+6. **OpenAPI codegen** — `admin-ui npm run codegen` when API is up; optional
+   typed client; CI drift check documented.
+
+**DoD:** CRM flows feel instant after first load; docs and ADRs match CRM-only
+showcase narrative; vitest + backend tests green.
 
 ---
 

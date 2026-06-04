@@ -1,0 +1,10 @@
+{
+  "model": "base.model-access",
+  "type": "form",
+  "sections": [
+    {
+      "title": "Access",
+      "fields": ["model_name", "role_name", "perm_read", "perm_write", "perm_create", "perm_unlink"]
+    }
+  ]
+}

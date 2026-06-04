@@ -58,7 +58,7 @@ async def store_credential(
 ) -> uuid.UUID:
     from datetime import datetime, timezone
 
-    from modules.base.model.mapping import ir_ai_credentials_table as t
+    from modules.base.model.mapping import base_ai_credentials_table as t
 
     secret_enc = encrypt(secret)
     now = datetime.now(timezone.utc)
@@ -107,7 +107,7 @@ async def fetch_credential(
     tenant_id: uuid.UUID,
     provider: str,
 ) -> dict[str, Any] | None:
-    from modules.base.model.mapping import ir_ai_credentials_table as t
+    from modules.base.model.mapping import base_ai_credentials_table as t
 
     row = (
         await session.execute(

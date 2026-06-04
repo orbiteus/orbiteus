@@ -6,7 +6,7 @@
 >
 > **Canonical sources:**
 > - `docs/02-architecture.md` — modular monolith, 3-layer model
-> - `docs/04-data-model.md` — `BaseModel` / `SystemModel` / `ir_*`
+> - `docs/04-data-model.md` — `BaseModel` / `SystemModel` / `base_*`
 > - `docs/05-rbac-multitenancy.md` — 5-level RBAC + `tenant_id`
 > - `docs/12-events-and-queues.md` — EventBus + Outbox + Celery
 > - `docs/14-audit.md` — mandatory audit policy
@@ -28,18 +28,18 @@
 - **Auth + RBAC** — JWT (HS256) + bcrypt, JTI revocation in Redis, TOTP
   + recovery codes, httpOnly cookie session for the browser
   ([ADR-0017](../../../../docs/adr/0017-httponly-cookie-session.md)),
-  five-level RBAC (`ir_model_access`, `ir_rule`, action RBAC, field-level,
+  five-level RBAC (`base_model_access`, `base_rule`, action RBAC, field-level,
   scope).
-- **Audit log** (`ir_audit_log`) — mandatory, opt-out via
+- **Audit log** (`base_audit_log`) — mandatory, opt-out via
   `AUDIT_OPTOUT_MODELS`; per-field diff on every CRUD.
-- **EventBus** (in-process, sync) + **Postgres Outbox** (`ir_outbox`)
+- **EventBus** (in-process, sync) + **Postgres Outbox** (`base_outbox`)
   drained by Celery for durable side effects (webhooks, embeddings,
   email).
 - **Cache** — Redis abstraction (`Cache`, `get_redis`, `get_cache`).
 - **Realtime** — SSE endpoint `/api/realtime/subscribe` + Redis Pub/Sub
   backplane.
 - **AI layer** — provider ABC (Anthropic, OpenAI, Ollama), BYOK
-  (`ir_ai_credentials`, Fernet at-rest), embeddings (`ir_embeddings`,
+  (`base_ai_credentials`, Fernet at-rest), embeddings (`base_embeddings`,
   pgvector + HNSW), per-tenant token budgets in Redis, redaction.
 - **Observability** — JSON logging with `request_id` / `tenant_id` /
   `actor` ContextVars, Prometheus `/metrics`, OpenTelemetry tracing

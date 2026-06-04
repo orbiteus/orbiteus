@@ -14,7 +14,7 @@ Status: drafting ADR-0005 with `dim INT` column.
 
 ## Q2 — Field-level RBAC representation
 
-YAML in `security/fields.yaml` per module, vs centralized table `ir_field_access`.
+YAML in `security/fields.yaml` per module, vs centralized table `base_field_access`.
 
 Status: undecided.
 

@@ -11,28 +11,39 @@ through `BaseRepository`, which applies them automatically.
 - Bypass requires `RequestContext.is_superadmin = True` and is logged with
   `actor=system` plus the call stack.
 
-## Layer 1 — Model access (`ir_model_access`)
+## Layer 1 — Model access (`base_model_access`)
 
 ```
 role × model → {read, write, create, unlink}
 ```
 
 - Loaded into Redis at `registry.bootstrap()`.
-- Cached for ≤ 60 s; invalidated on `ir_model_access` change events.
+- Cached for ≤ 60 s; invalidated on `base_model_access` change events.
 - Checked in `BaseRepository._check_model_access()`.
 
-## Layer 2 — Record rules (`ir_rule`)
+## Layer 2 — Record rules (`base_rule`)
 
-Domain expressions that filter rows for specific roles.
+Structured JSON domain filters that restrict rows for specific roles:
 
+```yaml
+domain:
+  - field: assigned_user_id
+    op: "="
+    value: current_user
 ```
-[("assigned_user_id", "=", ctx.user_id)]
-```
 
-- Applied automatically in `BaseRepository.search()` and `get()`.
-- Multiple rules combine with logical AND across roles.
+Legacy Odoo-style tuple strings are normalized on YAML import. Stored in
+`domain_force` as a JSON array. Applied automatically in
+`BaseRepository.search()` and `get()`.
 
-## Layer 3 — Action RBAC
+## Layer 3 — User role assignment (`base_user_roles`)
+
+Role codes are assigned via junction table `base_user_roles(user_id, role_id)`.
+The API still exposes `role_ids` as a list of role **codes**; JWT carries
+`rbac_ver` (Redis `rbac:version`). When RBAC changes, middleware reloads role
+codes from the junction without requiring re-login.
+
+## Layer 4 — Action RBAC
 
 Every `Action` declares `requires_feature`. The resolver filters actions out
 of the Command Palette and AI tool list when the user lacks the feature.
@@ -43,16 +54,12 @@ The mapping:
 feature "crm.persons.manage" → model "crm.person", op "write"
 ```
 
-## Layer 4 — Field-level (planned)
+## Layer 5 — Field-level (deferred)
 
-Per-field `read` / `write` per role, declared in module `security/fields.yaml`.
+Per-field `read` / `write` per role was considered for v1.0 but is **deferred**.
+Do not implement ad-hoc field filtering without a new ADR.
 
-- Read protection redacts the field from API responses.
-- Write protection rejects updates with `403`.
-
-Tracked in `23-tree-spec-framework.md`.
-
-## Layer 5 — Scope (`internal` / `portal` / `ai`)
+## Layer 6 — Scope (`internal` / `portal` / `ai`)
 
 JWT carries a `scope` claim. The scope is the **upper bound** on what a request
 can do, regardless of role:

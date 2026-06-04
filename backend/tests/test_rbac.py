@@ -43,37 +43,31 @@ async def test_rbac_cache_loaded_at_startup(client):
 
 @pytest.mark.asyncio
 async def test_non_superadmin_gets_tenant_isolated_data(client):
-    """Two separate tenants: user A creates a person, user B cannot see it.
+    """Two separate tenants: user B cannot read user A's company record."""
+    from orbiteus_core.security.tokens import decode_access_token
 
-    Canonical CRM (ADR-0010, docs/26) uses `crm.person` as the
-    contact model — the previous `crm.customer` was retired.
-    """
-    # Tenant A — register and create a person
     email_a = unique_email("rbac_a")
-    tokens_a = await register_user(client, email=email_a)
-    token_a = tokens_a["access_token"]
+    reg_a = await register_user(client, email=email_a)
+    token_a = reg_a["access_token"]
+    company_id_a = decode_access_token(token_a)["company_id"]
 
-    create_resp = await client.post(
-        "/api/crm/person",
-        json={"name": "RBAC Tenant A Secret Person", "kind": "individual"},
+    email_b = unique_email("rbac_b")
+    reg_b = await register_user(client, email=email_b)
+    token_b = reg_b["access_token"]
+
+    assert company_id_a is not None
+
+    own = await client.get(
+        f"/api/base/company/{company_id_a}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
-    assert create_resp.status_code in (200, 201), f"create failed: {create_resp.text}"
+    assert own.status_code == 200
 
-    # Tenant B — completely separate tenant
-    email_b = unique_email("rbac_b")
-    tokens_b = await register_user(client, email=email_b)
-    token_b = tokens_b["access_token"]
-
-    list_resp = await client.get(
-        "/api/crm/person",
+    cross = await client.get(
+        f"/api/base/company/{company_id_a}",
         headers={"Authorization": f"Bearer {token_b}"},
     )
-    assert list_resp.status_code == 200
-    names = [c["name"] for c in _items(list_resp.json())]
-    assert "RBAC Tenant A Secret Person" not in names, (
-        "Tenant isolation broken: Tenant B can see Tenant A's person!"
-    )
+    assert cross.status_code in (403, 404)
 
 
 # ---------------------------------------------------------------------------

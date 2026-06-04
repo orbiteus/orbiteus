@@ -68,14 +68,17 @@ def test_fernet_rejects_invalid_development_like_key(monkeypatch):
 def test_provider_dispatch():
     if str(BACKEND) not in sys.path:
         sys.path.insert(0, str(BACKEND))
-    from orbiteus_core.ai.providers import ProviderError, get_provider
+    from orbiteus_core.ai.providers import ProviderError, PROVIDER_NAMES, get_provider
     from orbiteus_core.ai.providers.anthropic import AnthropicProvider
+    from orbiteus_core.ai.providers.gemini import GeminiProvider
     from orbiteus_core.ai.providers.ollama import OllamaProvider
     from orbiteus_core.ai.providers.openai import OpenAIProvider
 
     assert isinstance(get_provider("anthropic"), AnthropicProvider)
     assert isinstance(get_provider("openai"), OpenAIProvider)
+    assert isinstance(get_provider("gemini"), GeminiProvider)
     assert isinstance(get_provider("ollama"), OllamaProvider)
+    assert PROVIDER_NAMES == frozenset({"anthropic", "openai", "ollama", "gemini"})
     with pytest.raises(ProviderError):
         get_provider("unknown")
 
@@ -88,6 +91,18 @@ def test_anthropic_rejects_embed():
     from orbiteus_core.ai.providers import ProviderError, get_provider
 
     p = get_provider("anthropic")
+    with pytest.raises(ProviderError):
+        asyncio.run(p.embed(api_key="x", texts=["hi"]))
+
+
+def test_gemini_rejects_embed():
+    if str(BACKEND) not in sys.path:
+        sys.path.insert(0, str(BACKEND))
+    import asyncio
+
+    from orbiteus_core.ai.providers import ProviderError, get_provider
+
+    p = get_provider("gemini")
     with pytest.raises(ProviderError):
         asyncio.run(p.embed(api_key="x", texts=["hi"]))
 

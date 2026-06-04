@@ -133,7 +133,7 @@ function _parseOptions(
   return options.length > 0 ? options : undefined;
 }
 
-/** "some_field_name" → "Some Field Name"; strips leading `ir-` / `ir_` like other UI labels */
+/** "some_field_name" → "Some Field Name"; strips verbose engine slug prefixes in UI labels */
 function _humanize(name: string): string {
   return humanizeRegistrySlugForUi(name);
 }

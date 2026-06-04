@@ -15,15 +15,33 @@ orbiteus_core/ai/
     base.py            # Provider ABC
     anthropic.py       # default
     openai.py          # secondary
+    gemini.py          # Google Gemini API
     ollama.py          # optional local fallback
-  keys.py              # ir_ai_credential CRUD + Fernet encryption
+  keys.py              # base_ai_credentials CRUD + Fernet encryption
   context.py           # AIContextBuilder (RBAC-scoped data view)
   tools.py             # Action → tool, model → QueryTool, semantic_search
   prompts.py           # PromptTemplate registry
   embeddings.py        # pgvector helpers
   dashboard.py         # NL → aggregate query → chart spec
   budget.py            # token quota per tenant
+  loop.py              # AgentLoop — multi-turn tool execution
+  executor.py          # AgentExecutor — run base.agent definitions
+  query_executor.py    # read_* tool → BaseRepository.search
 ```
+
+## Agent primitive (ADR-0018)
+
+Framework tables in `modules/base`:
+
+- **`base.agent`** — slug, persona, module scope, allowed models/actions.
+- **`base.agent-run`** — execution ledger (status, output, tool trace).
+
+Runtime: `AgentLoop` executes tools across multiple provider turns;
+`AgentExecutor` loads an agent definition under the caller's RBAC.
+`run_agent_loop_stream()` powers streaming chat. Delegation via
+`delegate_agent` tool (ADR-0019). Scheduled runs via Celery Beat.
+
+Full spec: `docs/37-ai-agents.md`, ADR-0018, ADR-0019.
 
 ## Providers
 
@@ -45,10 +63,10 @@ class Provider(ABC):
 ## BYOK (Bring Your Own Key)
 
 ```sql
-CREATE TABLE ir_ai_credential (
+CREATE TABLE base_ai_credentials (
     id              UUID PRIMARY KEY,
     tenant_id       UUID NOT NULL,
-    provider        TEXT NOT NULL,            -- anthropic | openai | ollama
+    provider        TEXT NOT NULL,            -- anthropic | openai | gemini | ollama
     secret_encrypted BYTEA NOT NULL,          -- Fernet(AI_SECRET_KEY)
     model_default   TEXT,                     -- e.g. "claude-3-7-sonnet"
     is_active       BOOLEAN NOT NULL DEFAULT true,
@@ -101,7 +119,7 @@ All tool calls are audited (`actor=ai`, `tool_name`, `args`, `result_status`).
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE TABLE ir_embedding (
+CREATE TABLE base_embeddings (
     id           UUID PRIMARY KEY,
     tenant_id    UUID NOT NULL,
     model        TEXT NOT NULL,
@@ -113,7 +131,7 @@ CREATE TABLE ir_embedding (
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (tenant_id, model, record_id, provider, model_name)
 );
-CREATE INDEX ON ir_embedding USING hnsw (vector vector_cosine_ops);
+CREATE INDEX ON base_embeddings USING hnsw (vector vector_cosine_ops);
 ```
 
 Refresh trigger: `record.created` / `record.updated` events for models listed

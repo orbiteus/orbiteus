@@ -1,12 +1,11 @@
 import dayjs from "dayjs";
 
 /**
- * Human-readable title from a URL segment or short model slug (e.g. `ir-model`).
- * Strips the internal registry prefix `ir-` / `ir_` so technical screens show
- * "Model" instead of "Ir Model". Routes and API names stay unchanged.
+ * Human-readable title from a URL segment or model slug (e.g. `registry-model`).
+ * Strips verbose engine prefixes so technical screens stay readable.
  */
 export function humanizeRegistrySlugForUi(slug: string): string {
-  const stripped = slug.replace(/^ir[-_]/i, "");
+  const stripped = slug.replace(/^(registry-|record-|scheduled-|document-|embedding-)/i, "");
   const lower = stripped.toLowerCase();
   return lower
     .replace(/[-_]+/g, " ")
@@ -14,10 +13,10 @@ export function humanizeRegistrySlugForUi(slug: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function formatListDate(value: unknown): string {
+export function formatListDate(value: unknown, locale = "en"): string {
   if (value == null || value === "") return "—";
   const s = String(value);
-  const d = dayjs(s);
+  const d = dayjs(s).locale(locale);
   if (!d.isValid()) return s;
   return d.format("YYYY-MM-DD HH:mm");
 }

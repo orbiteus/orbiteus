@@ -13,7 +13,7 @@
 |---|---|---|
 | Active business records | `crm.person`, `crm.lead`, attachments | While tenant is active |
 | Soft-deleted records | `active=false` | 30 days, then hard delete |
-| Audit log (`ir_audit_log`) | every CRUD + auth event | 365 days |
+| Audit log (`base_audit_log`) | every CRUD + auth event | 365 days |
 | Logs (stdout) | request logs | 30 days |
 | Metrics | Prometheus | 90 days |
 | Backups | encrypted full + WAL | see `31-backups-and-dr.md` |
@@ -21,9 +21,9 @@
 
 ## Configuration knobs
 
-- `ir_config_param "retention.audit_days"` (default 365).
-- `ir_config_param "retention.soft_delete_days"` (default 30).
-- `ir_config_param "retention.logs_days"` (default 30).
+- `base_config_param "retention.audit_days"` (default 365).
+- `base_config_param "retention.soft_delete_days"` (default 30).
+- `base_config_param "retention.logs_days"` (default 30).
 - Tenant admins can set tenant-level overrides; engine defaults are floors.
 
 ## DSAR (Data Subject Access Request)
@@ -49,7 +49,7 @@ POST /api/base/dsar/erase
 The job:
 
 1. Pseudonymizes referencing rows (replaces name/email/phone with hashes).
-2. Redacts the subject's diff entries in `ir_audit_log`.
+2. Redacts the subject's diff entries in `base_audit_log`.
 3. Removes raw PII from attachments where possible.
 4. Records the erasure event with `actor=system`.
 

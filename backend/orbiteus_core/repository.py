@@ -6,7 +6,7 @@ PR 3 additions:
   `EventBus`. Subclasses can override `before_create / after_create / ...`
   for module-specific behavior; cross-cutting subscribers (audit,
   realtime emit, embeddings refresh) attach via `event_bus.subscribe`.
-- Audit log: every CRUD writes a row to `ir_audit_log` unless the model
+- Audit log: every CRUD writes a row to `base_audit_log` unless the model
   is on the `AUDIT_OPTOUT_MODELS` list (defense against logging the log).
 - Attribution: `created_by_id` and `modified_by_id` auto-populated from
   `RequestContext.user_id`.
@@ -39,9 +39,9 @@ T = TypeVar("T", bound=BaseModel)
 # Models that must NOT be audited (logging the log creates infinite loops,
 # transient queues are noise). See docs/14-audit.md.
 AUDIT_OPTOUT_MODELS: set[str] = {
-    "base.audit_log",
+    "base.audit-log",
     "base.outbox",
-    "base.embedding",
+    "base.embedding-record",
 }
 
 
@@ -212,6 +212,15 @@ class BaseRepository(Generic[T]):
             "record.deleted",
             self._record_event_payload(obj),
         )
+        rid = getattr(obj, "id", None)
+        if rid is not None:
+            from modules.base.controller.attachment_service import AttachmentService
+
+            await AttachmentService(self.session).delete_for_linked_record(
+                tenant_id=self.ctx.tenant_id,
+                res_model=self.model_name,
+                res_id=rid,
+            )
 
     # ------------------------------------------------------------------
     # Multi-tenancy filter
@@ -324,7 +333,7 @@ class BaseRepository(Generic[T]):
             return
 
         # Lazy import to avoid circular at module load.
-        from modules.base.model.domain import IrAuditLog
+        from modules.base.model.domain import AuditLog
         from orbiteus_core.db import metadata  # noqa: F401
 
         record_id = getattr(obj, "id", None)
@@ -337,7 +346,7 @@ class BaseRepository(Generic[T]):
         if self.ctx.is_superadmin:
             meta["superadmin"] = True
 
-        row = IrAuditLog(
+        row = AuditLog(
             tenant_id=tenant_id,
             actor=actor,
             user_id=user_id,

@@ -28,11 +28,11 @@
 5. PgBouncer in compose
 
 ### Wave 3 — AI layer (BYOK, ready-to-go)
-1. `ir_ai_credential` table + Fernet encryption
+1. `base_ai_credential` table + Fernet encryption
 2. Provider abstraction (Anthropic, OpenAI, Ollama)
 3. `AIModuleConfig` registry + `ai.py` convention
 4. `<PromptInput>` widget in `admin-ui/src/orbiteus-ui`
-5. `pgvector` + `ir_embedding` + Outbox-driven reindex
+5. `pgvector` + `base_embedding` + Outbox-driven reindex
 
 ### Wave 4 — Canonical CRM (MVP)
 1. Rename Customer→Person, Opportunity→Lead, drop Pipeline, add Team
@@ -53,6 +53,14 @@
 2. Rate limiting (token buckets) end to end
 3. Backups (pg_dump cron + S3 target)
 4. Multi-host migration guide validated against k8s test cluster
+
+### Wave 7 — Agent UX and domain apps (2026-05)
+1. Repositioning docs + ADR-0021 (domain-first, not ERP-first)
+2. TanStack Query data layer in admin-ui (ADR-0020)
+3. Spec-driven agent workflow (`docs/39`, `modules-spec-template.md`)
+4. Reference product doc (`docs/40-reference-product-caltrain.md`)
+5. GET one `?expand=` for form many2one labels
+6. CRM as sole in-repo showcase domain module; Tier B = optional feature routes in admin-ui (ADR-0021)
 
 ## Tracking
 

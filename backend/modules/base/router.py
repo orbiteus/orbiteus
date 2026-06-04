@@ -21,9 +21,9 @@ _BRANDING_DEFAULTS = {
 @router.get("/branding")
 async def get_branding(session: AsyncSession = Depends(get_session)) -> dict:
     """Return public branding config (no auth required)."""
-    from modules.base.repositories import IrConfigParamRepository
+    from modules.base.controller.repositories import ConfigParamRepository
     ctx = RequestContext(is_superadmin=True)
-    repo = IrConfigParamRepository(session, ctx)
+    repo = ConfigParamRepository(session, ctx)
     result = dict(_BRANDING_DEFAULTS)
     for key in _BRANDING_KEYS:
         try:
@@ -71,10 +71,10 @@ async def get_menu_tree(
     session: AsyncSession = Depends(get_session),
     ctx: RequestContext = Depends(require_superadmin),
 ) -> dict:
-    """Return the full ir_ui_menu tree for the Admin UI sidebar."""
-    from modules.base.repositories import IrUiMenuRepository
+    """Return the full base_ui_menus tree for the Admin UI sidebar."""
+    from modules.base.controller.repositories import UiMenuRepository
 
-    repo = IrUiMenuRepository(session, ctx)
+    repo = UiMenuRepository(session, ctx)
     menus, total = await repo.search(limit=500)
 
     # Build tree structure
