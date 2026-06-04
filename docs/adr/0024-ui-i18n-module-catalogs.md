@@ -1,8 +1,9 @@
-# ADR-0023 — UI i18n as module catalogs (English canonical)
+# ADR-0024: UI i18n as module catalogs (English canonical)
 
-## Status
-
-Accepted — implemented.
+- **Status:** Accepted
+- **Date:** 2026-05-29
+- **Context tags:** i18n, modules, admin-ui, portal-ui
+- **Supersedes:** monolithic `packages/i18n` message bundles as source of truth
 
 ## Context
 
@@ -23,7 +24,7 @@ drift and blocked the “extend i18n by adding modules” model.
    - `GET /api/base/i18n/locales`
    - `GET /api/base/i18n/messages/{lang}`
 5. **`@orbiteus/i18n`** keeps `useT`, `I18nProvider`, merge helpers — no full
-   catalogs in TypeScript (SSR uses empty stub until API responds).
+   catalogs in TypeScript (public routes use static fallbacks until authenticated).
 
 ## Consequences
 

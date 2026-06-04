@@ -46,6 +46,7 @@ conventions, and decisions.
 | 23 | [`23-tree-spec-framework.md`](./23-tree-spec-framework.md) | Backend [x]/[ ] tree |
 | 24 | [`24-tree-spec-admin-ui.md`](./24-tree-spec-admin-ui.md) | Admin UI [x]/[ ] tree |
 | 25 | [`25-tree-spec-portal-ui.md`](./25-tree-spec-portal-ui.md) | Portal UI [x]/[ ] tree |
+| 26 | [`26-canonical-crm.md`](./26-canonical-crm.md) | Canonical CRM: Person / Lead / Stage / Team |
 | 27 | [`27-licenses.md`](./27-licenses.md) | License policy |
 | 28 | [`28-open-questions.md`](./28-open-questions.md) | Questions awaiting ADR |
 | 29 | [`29-observability.md`](./29-observability.md) | Logs, metrics, traces |

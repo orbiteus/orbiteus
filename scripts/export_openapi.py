@@ -21,7 +21,7 @@ sys.path.insert(0, str(BACKEND))
 
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+asyncpg://orbiteus:orbiteus@localhost:5432/orbiteus_test",
+    "postgresql+asyncpg://orbiteus:orbiteus@localhost:5432/orbiteus_test",  # pragma: allowlist secret
 )
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("SECRET_KEY", "export-openapi-dev")

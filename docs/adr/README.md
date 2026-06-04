@@ -21,7 +21,6 @@ Use the structure in [`_template.md`](./_template.md) for new ADRs.
 | 0007 | [Portal as a separate Next.js app](./0007-portal-as-separate-next-app.md) | Accepted |
 | 0008 | [CRM-MVP rename: Person / Lead / Stage / Team](./0008-crm-mvp-rename-person-lead-stage-team.md) | Accepted |
 | 0009 | [Anthropic + OpenAI + Ollama as MVP AI providers](./0009-anthropic-openai-ollama-providers.md) | Accepted |
-| 0023 | [Gemini as fourth BYOK chat provider](./0023-gemini-provider.md) | Accepted |
 | 0010 | [Postgres Outbox + EventBus for side effects](./0010-eventbus-postgres-outbox.md) | Accepted |
 | 0011 | [Gunicorn + UvicornWorker as production HTTP server](./0011-gunicorn-uvicorn-workers.md) | Accepted |
 | 0012 | [PgBouncer in front of Postgres](./0012-pgbouncer-in-front-of-postgres.md) | Accepted |
@@ -34,3 +33,6 @@ Use the structure in [`_template.md`](./_template.md) for new ADRs.
 | 0019 | [Agent delegation and scheduled runs](./0019-agent-delegation-and-scheduling.md) | Accepted |
 | 0020 | [TanStack Query for admin-ui data layer](./0020-tanstack-query-admin-ui.md) | Accepted |
 | 0021 | [Domain-first positioning and hybrid UI](./0021-domain-apps-and-repositioning.md) | Accepted |
+| 0022 | [Modern views (JSON) and RBAC v2](./0022-modern-views-and-rbac-v2.md) | Accepted |
+| 0023 | [Gemini as fourth BYOK chat provider](./0023-gemini-provider.md) | Accepted |
+| 0024 | [UI i18n as module catalogs (English canonical)](./0024-ui-i18n-module-catalogs.md) | Accepted |

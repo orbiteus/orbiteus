@@ -30,7 +30,9 @@ def _postgres_alive() -> bool:
             import asyncpg
 
             conn = await asyncio.wait_for(
-                asyncpg.connect("postgresql://orbiteus:orbiteus@localhost:5433/orbiteus"),
+                asyncpg.connect(
+                    "postgresql://orbiteus:orbiteus@localhost:5433/orbiteus",  # pragma: allowlist secret
+                ),
                 timeout=2.0,
             )
             await conn.close()
