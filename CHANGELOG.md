@@ -14,6 +14,34 @@ versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.2] — 2026-06-07
+
+### Added
+
+- **System status:** shows the running Orbiteus release version (badge in page header,
+  runtime tile, `version` field on `GET /api/base/system-status`); reads
+  `backend/pyproject.toml` so dev Docker bind-mounts are not stuck on stale
+  editable-install metadata. Component tiles include library/runtime versions
+  wherever probeable (PostgreSQL, Redis, pgvector, Celery, AI SDKs, frontend stack).
+
+### Fixed
+
+- **i18n flash on reload:** authenticated shell waits for auth hydration and
+  the API message catalog before rendering (no raw keys such as
+  `dashboard.link.companies` during load).
+- **Mail settings:** placeholder SMTP hosts (e.g. `smtp.test.example`) show an
+  informational hint instead of a misleading top-level connection error; action
+  errors are scoped to the SMTP form.
+
+### Changed
+
+- **Sidebar default:** first visit (no `orbiteus:sidebar-open` in
+  `localStorage`) opens the expanded 240px menu; stored preference is unchanged.
+- **Welcome page:** “Reference stack” replaced with two **platform pillar** cards
+  (agent-first framework + AI-native apps); stack details moved into bullet lists.
+- **Bootstrap admin language:** new users default to `en`; demo seed keeps
+  `admin@demo.orbiteus.com` on English UI.
+
 ## [1.1.1] — 2026-05-30
 
 ### Fixed

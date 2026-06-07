@@ -12,6 +12,7 @@ export type SystemComponent = {
 
 export type SystemStatusPayload = {
   status: ComponentStatus;
+  version?: string;
   checked_at: string;
   components: SystemComponent[];
 };
@@ -72,6 +73,7 @@ export const GROUP_ORDER = [
 
 /** Colorful tile accents per component id (data/semantics, not UI chrome). */
 export const COMPONENT_TILE_COLORS: Record<string, string> = {
+  orbiteus: "dark",
   python: "dark",
   fastapi: "teal",
   http_server: "cyan",
@@ -111,6 +113,7 @@ export const COMPONENT_TILE_COLORS: Record<string, string> = {
   mantine: "violet",
   admin_ui: "dark",
   portal_ui: "cyan",
+  i18n_pack: "grape",
 };
 
 export function componentTileColor(id: string): string {

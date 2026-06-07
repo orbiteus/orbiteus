@@ -50,8 +50,8 @@ import {
   IconWorld,
 } from "@tabler/icons-react";
 import { useT } from "@orbiteus/i18n";
-import packageJson from "../../../../package.json";
 import { api, apiErrorMessage } from "@/lib/api";
+import { FRONTEND_STACK_VERSIONS } from "@/lib/frontendStackVersions";
 import {
   componentTileColor,
   groupComponents,
@@ -65,6 +65,7 @@ import {
 } from "@/lib/systemStatus";
 
 const COMPONENT_ICONS: Record<string, React.ComponentType<{ size?: number; stroke?: number }>> = {
+  orbiteus: IconActivity,
   python: IconBrandPython,
   fastapi: IconApi,
   http_server: IconServer,
@@ -150,43 +151,52 @@ export default function SystemStatusPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const frontendTiles = useMemo<SystemComponent[]>(() => {
-    const deps = packageJson.dependencies ?? {};
+    const v = FRONTEND_STACK_VERSIONS;
     return [
       {
         id: "nextjs",
         name: "Next.js",
         group: "frontend",
         status: "ok",
-        message: `v${semverLabel(String(deps.next ?? "?"))} · App Router`,
+        message: `v${semverLabel(v.next)} · App Router`,
         latency_ms: null,
-        detail: {},
+        detail: { version: semverLabel(v.next) },
       },
       {
         id: "react",
         name: "React",
         group: "frontend",
         status: "ok",
-        message: `v${semverLabel(String(deps.react ?? "?"))}`,
+        message: `v${semverLabel(v.react)}`,
         latency_ms: null,
-        detail: {},
+        detail: { version: semverLabel(v.react) },
       },
       {
         id: "mantine",
         name: "Mantine",
         group: "frontend",
         status: "ok",
-        message: `v${semverLabel(String(deps["@mantine/core"] ?? "?"))} · design system`,
+        message: `v${semverLabel(v.mantine)} · design system`,
         latency_ms: null,
-        detail: {},
+        detail: { version: semverLabel(v.mantine) },
+      },
+      {
+        id: "i18n_pack",
+        name: "@orbiteus/i18n",
+        group: "frontend",
+        status: "ok",
+        message: `v${semverLabel(v.i18n)} · module catalogs`,
+        latency_ms: null,
+        detail: { version: semverLabel(v.i18n) },
       },
       {
         id: "admin_ui",
         name: "Admin UI",
         group: "frontend",
         status: "ok",
-        message: "Internal users · this session",
+        message: `v${semverLabel(v.adminUi)} · TanStack Query v${semverLabel(v.reactQuery)}`,
         latency_ms: null,
-        detail: {},
+        detail: { version: semverLabel(v.adminUi), reactQuery: semverLabel(v.reactQuery) },
       },
       {
         id: "portal_ui",
@@ -194,10 +204,10 @@ export default function SystemStatusPage() {
         group: "frontend",
         status: process.env.NEXT_PUBLIC_PORTAL_URL ? "unknown" : "skipped",
         message: process.env.NEXT_PUBLIC_PORTAL_URL
-          ? "Partner portal · verify at :3001"
-          : "Optional second Next.js app",
+          ? `v${semverLabel(v.portalUi)} · verify at :3001`
+          : `v${semverLabel(v.portalUi)} · optional second Next.js app`,
         latency_ms: null,
-        detail: {},
+        detail: { version: semverLabel(v.portalUi) },
       },
     ];
   }, []);
@@ -252,6 +262,11 @@ export default function SystemStatusPage() {
           </Text>
         </div>
         <Group gap="xs">
+          {payload?.version && (
+            <Badge size="lg" variant="outline" color="dark">
+              {t("systemStatus.version", { version: payload.version })}
+            </Badge>
+          )}
           {payload && (
             <Badge
               size="lg"

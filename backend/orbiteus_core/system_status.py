@@ -76,6 +76,9 @@ async def _check_postgresql() -> dict[str, Any]:
 
 
 async def _check_pgvector() -> dict[str, Any]:
+    from orbiteus_core.system_status_probes import pkg_version, version_label, with_version
+
+    py_ver = pkg_version("pgvector")
     start = time.perf_counter()
     try:
         from orbiteus_core.db import engine
@@ -86,11 +89,14 @@ async def _check_pgvector() -> dict[str, Any]:
                     text(
                         "SELECT EXISTS("
                         "  SELECT 1 FROM pg_extension WHERE extname = 'vector'"
-                        ") AS installed"
+                        ") AS installed, "
+                        "(SELECT extversion FROM pg_extension WHERE extname = 'vector') "
+                        "AS extversion"
                     )
                 )
             ).mappings().first()
             installed = bool(row and row["installed"])
+            ext_ver = str(row["extversion"]) if row and row.get("extversion") else ""
         latency = round((time.perf_counter() - start) * 1000, 1)
         if installed:
             return _component(
@@ -98,16 +104,21 @@ async def _check_pgvector() -> dict[str, Any]:
                 name="pgvector",
                 group="data",
                 status="ok",
-                message="Extension installed",
+                message=with_version(
+                    ext_ver or py_ver,
+                    f"pgvector-py {version_label(py_ver)}" if py_ver != "unknown" else "extension installed",
+                ),
                 latency_ms=latency,
+                detail={"extension": ext_ver or None, "pgvector_py": py_ver},
             )
         return _component(
             id="pgvector",
             name="pgvector",
             group="data",
             status="degraded",
-            message="Extension not installed",
+            message=with_version(py_ver, "extension not installed"),
             latency_ms=latency,
+            detail={"pgvector_py": py_ver},
         )
     except Exception as exc:
         logger.warning("system_status: pgvector check failed", extra={"error": str(exc)})
@@ -116,8 +127,8 @@ async def _check_pgvector() -> dict[str, Any]:
             name="pgvector",
             group="data",
             status="degraded",
-            message="Could not verify extension",
-            detail={"error": str(exc)[:200]},
+            message=with_version(py_ver, "could not verify extension"),
+            detail={"error": str(exc)[:200], "pgvector_py": py_ver},
         )
 
 
@@ -168,13 +179,16 @@ async def _check_redis() -> dict[str, Any]:
             await client.aclose()
         latency = round((time.perf_counter() - start) * 1000, 1)
         version = info.get("redis_version", "unknown") if isinstance(info, dict) else "unknown"
+        from orbiteus_core.system_status_probes import with_version
+
         return _component(
             id="redis",
             name="Redis 7",
             group="data",
             status="ok" if pong else "degraded",
-            message=f"redis {version}" if pong else "Ping failed",
+            message=with_version(version, "PONG") if pong else "Ping failed",
             latency_ms=latency,
+            detail={"redis_version": version},
         )
     except Exception as exc:
         logger.warning("system_status: redis failed", extra={"error": str(exc)})
@@ -191,6 +205,9 @@ async def _check_redis() -> dict[str, Any]:
 
 
 def _inspect_celery_workers() -> dict[str, Any]:
+    from orbiteus_core.system_status_probes import pkg_version, with_version
+
+    celery_ver = pkg_version("celery")
     start = time.perf_counter()
     try:
         from celery_app import app
@@ -205,7 +222,7 @@ def _inspect_celery_workers() -> dict[str, Any]:
                 name="Celery Worker",
                 group="async",
                 status="ok",
-                message=f"{len(workers)} worker(s) online",
+                message=with_version(celery_ver, f"{len(workers)} worker(s) online"),
                 latency_ms=latency,
                 detail={"workers": workers},
             )
@@ -214,7 +231,7 @@ def _inspect_celery_workers() -> dict[str, Any]:
             name="Celery Worker",
             group="async",
             status="unknown",
-            message="No workers running (optional in dev — start worker service)",
+            message=with_version(celery_ver, "no workers running (optional in dev)"),
             latency_ms=latency,
         )
     except Exception as exc:
@@ -230,6 +247,9 @@ def _inspect_celery_workers() -> dict[str, Any]:
 
 
 def _inspect_celery_beat() -> dict[str, Any]:
+    from orbiteus_core.system_status_probes import pkg_version, with_version
+
+    celery_ver = pkg_version("celery")
     redis_url = os.environ.get("REDIS_URL", "").strip()
     if not redis_url:
         return _component(
@@ -237,7 +257,7 @@ def _inspect_celery_beat() -> dict[str, Any]:
             name="Celery Beat",
             group="async",
             status="skipped",
-            message="Requires Redis broker",
+            message=with_version(celery_ver, "requires Redis broker"),
         )
     try:
         from celery_app import app
@@ -249,7 +269,7 @@ def _inspect_celery_beat() -> dict[str, Any]:
                 name="Celery Beat",
                 group="async",
                 status="degraded",
-                message="No beat schedule configured",
+                message=with_version(celery_ver, "no beat schedule configured"),
             )
         insp = app.control.inspect(timeout=0.8)
         scheduled = insp.scheduled() or {}
@@ -260,7 +280,7 @@ def _inspect_celery_beat() -> dict[str, Any]:
                 name="Celery Beat",
                 group="async",
                 status="ok",
-                message=f"{len(jobs)} periodic jobs · {queued} queued",
+                message=with_version(celery_ver, f"{len(jobs)} periodic jobs · {queued} queued"),
                 detail={"jobs": jobs},
             )
         return _component(
@@ -268,7 +288,7 @@ def _inspect_celery_beat() -> dict[str, Any]:
             name="Celery Beat",
             group="async",
             status="unknown",
-            message=f"{len(jobs)} jobs configured — verify beat container",
+            message=with_version(celery_ver, f"{len(jobs)} jobs configured — verify beat container"),
             detail={"jobs": jobs},
         )
     except Exception as exc:
@@ -329,13 +349,16 @@ async def _check_outbox() -> dict[str, Any]:
 
 
 async def _check_realtime(redis_status: ComponentStatus) -> dict[str, Any]:
+    from orbiteus_core.system_status_probes import pkg_version, with_version
+
+    starlette = pkg_version("starlette")
     if redis_status == "skipped":
         return _component(
             id="realtime",
             name="Realtime (SSE)",
             group="engine",
             status="skipped",
-            message="Requires Redis pub/sub",
+            message=with_version(starlette, "requires Redis pub/sub"),
         )
     if redis_status != "ok":
         return _component(
@@ -343,14 +366,14 @@ async def _check_realtime(redis_status: ComponentStatus) -> dict[str, Any]:
             name="Realtime (SSE)",
             group="engine",
             status="degraded",
-            message="Redis backplane unavailable",
+            message=with_version(starlette, "Redis backplane unavailable"),
         )
     return _component(
         id="realtime",
         name="Realtime (SSE)",
         group="engine",
         status="ok",
-        message="Redis pub/sub · tenant-scoped topics",
+        message=with_version(starlette, "tenant-scoped SSE topics"),
     )
 
 
@@ -370,6 +393,7 @@ async def collect_system_status() -> dict[str, Any]:
         check_http_server,
         check_module_registry,
         check_nginx,
+        check_orbiteus,
         check_pydantic,
         check_prometheus,
         check_python,
@@ -377,6 +401,7 @@ async def collect_system_status() -> dict[str, Any]:
         check_sqlalchemy,
         check_alembic,
     )
+    from orbiteus_core.version import get_orbiteus_version
 
     pg, pgvector, redis, outbox, alembic, rbac, audit = await asyncio.gather(
         _check_postgresql(),
@@ -416,6 +441,7 @@ async def collect_system_status() -> dict[str, Any]:
     components_map: dict[str, dict[str, Any]] = {
         c["id"]: c
         for c in (
+            check_orbiteus(),
             check_python(),
             check_fastapi(),
             check_http_server(),
@@ -466,6 +492,7 @@ async def collect_system_status() -> dict[str, Any]:
 
     return {
         "status": overall,
+        "version": get_orbiteus_version(),
         "checked_at": datetime.now(UTC).isoformat(),
         "components": components,
     }

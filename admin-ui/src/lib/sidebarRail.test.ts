@@ -1,12 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { isSidebarExpanded } from "./sidebarRail";
+import { afterEach, describe, expect, it } from "vitest";
+import { isSidebarExpanded, readSidebarOpen, SIDEBAR_OPEN_KEY } from "./sidebarRail";
 
 describe("sidebarRail", () => {
-  it("collapsed by default", () => {
-    expect(isSidebarExpanded(false)).toBe(false);
+  afterEach(() => {
+    window.localStorage.removeItem(SIDEBAR_OPEN_KEY);
   });
 
-  it("expanded only when toggled open", () => {
-    expect(isSidebarExpanded(true)).toBe(true);
+  it("is expanded by default when no preference is stored", () => {
+    expect(readSidebarOpen()).toBe(true);
+    expect(isSidebarExpanded(readSidebarOpen())).toBe(true);
+  });
+
+  it("respects stored collapsed preference", () => {
+    window.localStorage.setItem(SIDEBAR_OPEN_KEY, "0");
+    expect(readSidebarOpen()).toBe(false);
+  });
+
+  it("respects stored expanded preference", () => {
+    window.localStorage.setItem(SIDEBAR_OPEN_KEY, "1");
+    expect(readSidebarOpen()).toBe(true);
   });
 });

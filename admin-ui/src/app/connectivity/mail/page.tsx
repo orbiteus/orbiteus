@@ -37,8 +37,9 @@ import {
   IconSend,
 } from "@tabler/icons-react";
 import { useT } from "@orbiteus/i18n";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { isPlaceholderSmtpHost, placeholderHostHintText } from "@/lib/mailSettingsUi";
 
 interface MailSettings {
   source: "environment" | "database";
@@ -52,14 +53,7 @@ interface MailSettings {
 }
 
 function apiDetail(err: unknown, fallback: string): string {
-  if (err && typeof err === "object" && "response" in err) {
-    const data = (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail;
-    if (typeof data === "string") return data;
-    if (data && typeof data === "object" && "message" in data) {
-      return String((data as { message: unknown }).message);
-    }
-  }
-  return fallback;
+  return extractApiError(err, fallback);
 }
 
 export default function MailSettingsPage() {
@@ -82,11 +76,13 @@ export default function MailSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testingConn, setTestingConn] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
-  const [formError, setFormError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
-    setFormError("");
+    setLoadError("");
+    setActionError("");
     try {
       const { data } = await api.get<MailSettings>("/base/mail/settings", {
         skipGlobalErrorToast: true,
@@ -101,11 +97,11 @@ export default function MailSettingsPage() {
       setFromAddress(data.from_address ?? "");
       if (user?.email) setTestEmail(user.email);
     } catch (e) {
-      setFormError(apiDetail(e, t("mail.errorLoad")));
+      setLoadError(apiDetail(e, t("mail.errorLoad")));
     } finally {
       setLoading(false);
     }
-  }, [user?.email]);
+  }, [user?.email, t]);
 
   useEffect(() => {
     if (hydrated) void loadSettings();
@@ -124,7 +120,7 @@ export default function MailSettingsPage() {
 
   async function handleSave() {
     setSaving(true);
-    setFormError("");
+    setActionError("");
     try {
       const { data } = await api.put<MailSettings>("/base/mail/settings", {
         ...smtpPayload(true),
@@ -141,15 +137,19 @@ export default function MailSettingsPage() {
         icon: <IconCheck size={16} />,
       });
     } catch (e) {
-      setFormError(apiDetail(e, t("mail.errorSave")));
+      setActionError(apiDetail(e, t("mail.errorSave")));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleTestConnection() {
+    if (isPlaceholderSmtpHost(host)) {
+      setActionError(placeholderHostHintText(t));
+      return;
+    }
     setTestingConn(true);
-    setFormError("");
+    setActionError("");
     try {
       await api.post("/base/mail/settings/test-connection", smtpPayload(true), {
         skipGlobalErrorToast: true,
@@ -161,7 +161,7 @@ export default function MailSettingsPage() {
         icon: <IconCheck size={16} />,
       });
     } catch (e) {
-      setFormError(apiDetail(e, t("mail.connectionTestFailed")));
+      setActionError(apiDetail(e, t("mail.connectionTestFailed")));
     } finally {
       setTestingConn(false);
     }
@@ -169,11 +169,15 @@ export default function MailSettingsPage() {
 
   async function handleSendTest() {
     if (!testEmail.trim()) {
-      setFormError(t("mail.enterRecipient"));
+      setActionError(t("mail.enterRecipient"));
+      return;
+    }
+    if (isPlaceholderSmtpHost(host)) {
+      setActionError(placeholderHostHintText(t));
       return;
     }
     setSendingTest(true);
-    setFormError("");
+    setActionError("");
     try {
       await api.post(
         "/base/mail/settings/send-test",
@@ -187,11 +191,13 @@ export default function MailSettingsPage() {
         icon: <IconCheck size={16} />,
       });
     } catch (e) {
-      setFormError(apiDetail(e, t("mail.testSendFailed")));
+      setActionError(apiDetail(e, t("mail.testSendFailed")));
     } finally {
       setSendingTest(false);
     }
   }
+
+  const placeholderHost = isPlaceholderSmtpHost(host);
 
   if (!hydrated || loading) {
     return (
@@ -233,9 +239,15 @@ export default function MailSettingsPage() {
         ) : null}
       </Group>
 
-      {formError ? (
+      {loadError ? (
         <Alert color="red" title={t("common.error")} icon={<IconAlertCircle size={16} />}>
-          {formError}
+          {loadError}
+        </Alert>
+      ) : null}
+
+      {placeholderHost ? (
+        <Alert color="blue" title={t("mail.smtpServer")} icon={<IconAlertCircle size={16} />}>
+          {placeholderHostHintText(t)}
         </Alert>
       ) : null}
 
@@ -283,6 +295,11 @@ export default function MailSettingsPage() {
             checked={useTls}
             onChange={(e) => setUseTls(e.currentTarget.checked)}
           />
+          {actionError ? (
+            <Alert color="red" variant="light" icon={<IconAlertCircle size={16} />}>
+              {actionError}
+            </Alert>
+          ) : null}
           <Group>
             <Button loading={saving} onClick={() => void handleSave()}>
               {t("mail.saveSettings")}

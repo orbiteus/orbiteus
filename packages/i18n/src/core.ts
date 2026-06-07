@@ -1,4 +1,6 @@
 /** Built-in UI locales shipped with Orbiteus core. */
+import { SHELL_FALLBACK_EN } from "./shell-fallbacks";
+
 export type KnownUiLanguage = "en" | "pl" | "de" | "fr";
 
 /** Any registered locale code (built-in or module / DB extension). */
@@ -79,7 +81,11 @@ export function createTranslator(
   const fallback = catalogs.en ?? catalogs[DEFAULT_UI_LANGUAGE] ?? {};
 
   function t(key: string, vars?: TranslateVars): string {
-    let msg = primary[key] ?? fallback[key] ?? key;
+    let msg =
+      primary[key] ??
+      fallback[key] ??
+      SHELL_FALLBACK_EN[key] ??
+      key;
     if (!vars) return msg;
     for (const [name, value] of Object.entries(vars)) {
       msg = msg.replace(new RegExp(`\\{${name}\\}`, "g"), String(value));

@@ -235,6 +235,10 @@ function detailFromAxios(err: import("axios").AxiosError): string | null {
   const detail = d?.detail;
   if (typeof detail === "string" && detail.trim()) return detail.trim();
   if (Array.isArray(detail) && detail[0]?.msg) return String(detail[0].msg);
+  if (detail && typeof detail === "object" && "message" in detail) {
+    const msg = (detail as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.trim()) return msg.trim();
+  }
   return null;
 }
 

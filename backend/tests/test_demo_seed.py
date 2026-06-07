@@ -36,9 +36,15 @@ async def test_demo_seed_reset_and_apply(client: AsyncClient, tmp_path, monkeypa
 
     users = await client.get("/api/base/user?limit=50", headers=headers)
     assert users.status_code == 200
-    emails = {row["email"] for row in users.json()["items"]}
+    body = users.json()
+    emails = {row["email"] for row in body["items"]}
     assert "demo.manager@example.com" in emails
     assert len(emails) <= 5
+
+    bootstrap = next(
+        row for row in body["items"] if row["email"] == settings.bootstrap_admin_email
+    )
+    assert bootstrap["language"] == "en"
 
     hq_id = next(r["id"] for r in companies.json()["items"] if r["name"] == "Orbiteus HQ")
     attachments = await client.get(

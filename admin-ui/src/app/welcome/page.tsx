@@ -17,7 +17,6 @@ import {
   Box,
   Button,
   Card,
-  Code,
   Container,
   Flex,
   Group,
@@ -34,7 +33,7 @@ import {
   IconBook,
   IconBrandGithub,
   IconCircleCheck,
-  IconDatabase,
+  IconRobot,
   IconShieldLock,
   IconSparkles,
   IconUsers,
@@ -87,6 +86,34 @@ export default function WelcomePage() {
         t("welcome.card.headless.feature3"),
       ],
       icon: IconApi,
+    },
+  ];
+
+  const platformPillars: {
+    title: string;
+    blurb: string;
+    features: string[];
+    icon: typeof IconRobot;
+  }[] = [
+    {
+      title: t("welcome.pillar.agents.title"),
+      blurb: t("welcome.pillar.agents.blurb"),
+      features: [
+        t("welcome.pillar.agents.feature1"),
+        t("welcome.pillar.agents.feature2"),
+        t("welcome.pillar.agents.feature3"),
+      ],
+      icon: IconRobot,
+    },
+    {
+      title: t("welcome.pillar.aiNative.title"),
+      blurb: t("welcome.pillar.aiNative.blurb"),
+      features: [
+        t("welcome.pillar.aiNative.feature1"),
+        t("welcome.pillar.aiNative.feature2"),
+        t("welcome.pillar.aiNative.feature3"),
+      ],
+      icon: IconSparkles,
     },
   ];
 
@@ -237,25 +264,39 @@ export default function WelcomePage() {
           </Box>
 
           <Box w="100%">
-            <Group gap="sm" align="center" mb="xs">
-              <ThemeIcon variant="light" color="dark" radius="xl" size="md">
-                <IconDatabase size={16} />
-              </ThemeIcon>
-              <Title order={4}>{t("welcome.referenceStack")}</Title>
-            </Group>
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              <Stack gap={2}>
-                <Text size="xs" tt="uppercase" fw={700} c="dimmed">
-                  {t("welcome.backend")}
-                </Text>
-                <Code block>FastAPI · SQLAlchemy · PostgreSQL · pgvector · Redis · Celery</Code>
-              </Stack>
-              <Stack gap={2}>
-                <Text size="xs" tt="uppercase" fw={700} c="dimmed">
-                  {t("welcome.frontend")}
-                </Text>
-                <Code block>Next.js (App Router) · Mantine · TanStack Query</Code>
-              </Stack>
+            <Title order={3} mb="md">
+              {t("welcome.platformPillars")}
+            </Title>
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md" w="100%">
+              {platformPillars.map((pillar) => {
+                const PillarIcon = pillar.icon;
+                return (
+                  <Card key={pillar.title} withBorder padding="lg" radius="md" h="100%">
+                    <Stack gap="sm" h="100%">
+                      <ThemeIcon variant="outline" color="dark" size="lg" radius="md">
+                        <PillarIcon size={22} stroke={1.5} />
+                      </ThemeIcon>
+                      <Title order={4}>{pillar.title}</Title>
+                      <Text size="sm" c="dimmed">
+                        {pillar.blurb}
+                      </Text>
+                      <List
+                        spacing={4}
+                        size="sm"
+                        icon={
+                          <ThemeIcon variant="white" color="dark" size={16}>
+                            <IconCircleCheck size={14} />
+                          </ThemeIcon>
+                        }
+                      >
+                        {pillar.features.map((f) => (
+                          <List.Item key={f}>{f}</List.Item>
+                        ))}
+                      </List>
+                    </Stack>
+                  </Card>
+                );
+              })}
             </SimpleGrid>
           </Box>
 

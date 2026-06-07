@@ -53,7 +53,7 @@ Reference: CalTraining patterns in `docs/40-reference-product-caltrain.md`.
 | `/base/model-access` | no | Access rights matrix (Settings) |
 | `/connectivity/mail` | no | SMTP relay settings + connection / send test |
 | `/connectivity/webhooks` | no | Outbound webhook subscribers |
-| `/technical/system-status` | no | Full engine stack health: runtime, persistence, engine subsystems, **AI layer** (module config, agents, BYOK, embeddings, tooling), async queue, frontends |
+| `/technical/system-status` | no | Full engine stack health plus **release version** (`version` field and Orbiteus runtime tile); runtime, persistence, engine subsystems, **AI layer**, async queue, frontends |
 | `/technical/attachments` | no | Tenant attachment catalog — search, upload (pick model + record), download, delete |
 | `/technical/audit-log` | no | Paginated audit trail with realtime refresh |
 | `/base/agent` | no | AI agent definitions (AI → Agents) |
@@ -82,13 +82,14 @@ does not restart the frontend on every tick.
 
 ## Sidebar sections
 
-The left **AppShell** navbar is an **icon rail by default** (56px). **Hover**
-an icon to see its **name in a tooltip**. **Click a section icon** (CRM, AI,
-Settings…) to **drill down** into that section’s submenu (still icon-only,
-with tooltips on each item). **Back** (←) returns to the top-level section
-list. Use the **toggle at the bottom** to open the full expanded menu (240px)
-with group labels (**Apps** / **System**) and expandable section trees.
-Width preference: `localStorage` (`orbiteus:sidebar-open`). When collapsed,
+The left **AppShell** navbar defaults to the **expanded menu** (240px) with
+group labels (**Apps** / **System**) and expandable section trees. Use the
+**toggle at the bottom** to collapse to the icon rail (56px). **Hover** a
+collapsed icon to see its name in a tooltip. **Click a section icon** (CRM, AI,
+Settings…) to **drill down** into that section’s submenu when collapsed.
+**Back** (←) returns to the top-level section list.
+Width preference: `localStorage` (`orbiteus:sidebar-open`; default expanded when
+unset). When collapsed,
 navigating to a route auto-opens the drill view for the active section unless
 you explicitly pressed Back on that page.
 

@@ -108,6 +108,7 @@ async def _seed_superadmin(default_tenant_id: "uuid.UUID") -> None:  # type: ign
                 "password_hash": hash_password(_DEFAULT_SUPERADMIN_PASSWORD),
                 "is_superadmin": True,
                 "is_active": True,
+                "language": "en",
                 "company_ids": [],
                 "role_ids": [],
             })

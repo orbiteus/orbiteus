@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import text
 
 from orbiteus_core.system_status import ComponentStatus, _component
+from orbiteus_core.system_status_probes import pkg_version, version_label, with_version
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +182,7 @@ def _check_ai_secret_key() -> dict[str, Any]:
             name="Credential encryption",
             group=_AI_GROUP,
             status="ok",
-            message="Fernet key valid · credentials can be stored",
+            message=with_version(pkg_version("cryptography"), "Fernet · BYOK storage"),
         )
     except Exception as exc:
         return _component(
@@ -234,9 +235,10 @@ async def _check_ai_embeddings(pgvector_status: ComponentStatus) -> dict[str, An
             name="Embeddings pipeline",
             group=_AI_GROUP,
             status="ok",
-            message=(
-                f"{len(embed_models)} embed model(s) · {total} vector row(s) · "
-                f"dispatcher {dispatcher}"
+            message=with_version(
+                pkg_version("pgvector"),
+                f"{len(embed_models)} embed model(s) · {total} vector row(s)",
+                f"dispatcher {dispatcher}",
             ),
             latency_ms=latency,
             detail={"rows": total, "embed_models": embed_models},
@@ -307,30 +309,43 @@ def _check_ai_providers() -> dict[str, Any]:
     from orbiteus_core.ai.providers import get_provider
 
     names = ("anthropic", "openai", "ollama", "gemini")
+    dist_map = {
+        "anthropic": "anthropic",
+        "openai": "openai",
+        "gemini": "google-genai",
+    }
     loaded: list[str] = []
     errors: dict[str, str] = {}
+    sdk_versions: dict[str, str] = {}
     for name in names:
         try:
             get_provider(name)
             loaded.append(name)
         except Exception as exc:  # noqa: BLE001
             errors[name] = str(exc)[:120]
+    for provider, dist in dist_map.items():
+        ver = pkg_version(dist)
+        if ver != "unknown":
+            sdk_versions[provider] = ver
+    sdk_summary = ", ".join(
+        f"{name} {version_label(ver)}" for name, ver in sorted(sdk_versions.items())
+    )
     if not loaded:
         return _component(
             id="ai_providers",
             name="Provider adapters",
             group=_AI_GROUP,
             status="degraded",
-            message="No provider adapters available",
-            detail={"errors": errors},
+            message=with_version(None, "no provider adapters available", sdk_summary),
+            detail={"errors": errors, "sdk_versions": sdk_versions},
         )
     return _component(
         id="ai_providers",
         name="Provider adapters",
         group=_AI_GROUP,
         status="ok",
-        message=f"Ready: {', '.join(loaded)}",
-        detail={"providers": loaded, "errors": errors or None},
+        message=with_version(None, f"ready: {', '.join(loaded)}", sdk_summary),
+        detail={"providers": loaded, "errors": errors or None, "sdk_versions": sdk_versions},
     )
 
 

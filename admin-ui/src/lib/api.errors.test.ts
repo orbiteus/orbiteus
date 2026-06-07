@@ -30,6 +30,30 @@ describe("extractApiError", () => {
     expect(extractApiError(err, "Fallback")).toBe("Not found");
   });
 
+  it("returns structured detail message objects from mail endpoints", () => {
+    const err = new axios.AxiosError(
+      "Request failed",
+      "ERR",
+      undefined,
+      undefined,
+      {
+        status: 502,
+        data: {
+          detail: {
+            code: "mail.connection_failed",
+            message: "Error connecting to smtp.test.example on port 587",
+          },
+        },
+        statusText: "Bad Gateway",
+        headers: {},
+        config: {} as never,
+      },
+    );
+    expect(extractApiError(err, "Connection test failed")).toBe(
+      "Error connecting to smtp.test.example on port 587",
+    );
+  });
+
   it("falls back when detail is HTML", () => {
     const err = new axios.AxiosError(
       "Request failed",

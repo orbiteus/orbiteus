@@ -33,4 +33,10 @@ describe("createTranslator", () => {
     const { t } = createTranslator("pl", TEST_MESSAGE_CATALOGS);
     expect(t("common.cancel")).toBe("Cancel");
   });
+
+  it("falls back to shell gap-fill when API catalog is stale", () => {
+    const { t } = createTranslator("en", { en: { "common.save": "Save" } });
+    expect(t("mail.placeholderHostHint")).toContain("placeholder");
+    expect(t("mail.placeholderHostHint")).not.toBe("mail.placeholderHostHint");
+  });
 });

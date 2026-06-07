@@ -10,8 +10,27 @@ from typing import Any
 from sqlalchemy import text
 
 from orbiteus_core.system_status import ComponentStatus, _component
+from orbiteus_core.version import get_orbiteus_version
 
 logger = logging.getLogger(__name__)
+
+
+def version_label(ver: str | None) -> str:
+    """Normalize a semver string to ``vX.Y.Z`` (empty when unknown)."""
+    clean = (ver or "").strip().removeprefix("v")
+    if not clean or clean == "unknown":
+        return ""
+    return f"v{clean}"
+
+
+def with_version(ver: str | None, *parts: str) -> str:
+    """Join a version label with human-readable status fragments."""
+    bits: list[str] = []
+    label = version_label(ver)
+    if label:
+        bits.append(label)
+    bits.extend(p for p in parts if p)
+    return " · ".join(bits)
 
 
 def pkg_version(distribution: str, *, module_fallback: str | None = None) -> str:
@@ -29,26 +48,41 @@ def pkg_version(distribution: str, *, module_fallback: str | None = None) -> str
             return "unknown"
 
 
+def check_orbiteus() -> dict[str, Any]:
+    ver = get_orbiteus_version()
+    return _component(
+        id="orbiteus",
+        name="Orbiteus",
+        group="runtime",
+        status="ok",
+        message=f"v{ver}",
+        detail={"version": ver},
+    )
+
+
 def check_python() -> dict[str, Any]:
     major, minor, micro = sys.version_info[:3]
+    impl = sys.implementation.name
     return _component(
         id="python",
         name="Python",
         group="runtime",
         status="ok",
-        message=f"{major}.{minor}.{micro}",
-        detail={"implementation": sys.implementation.name},
+        message=with_version(f"{major}.{minor}.{micro}", impl),
+        detail={"implementation": impl},
     )
 
 
 def check_fastapi() -> dict[str, Any]:
     ver = pkg_version("fastapi")
+    starlette = pkg_version("starlette")
     return _component(
         id="fastapi",
         name="FastAPI",
         group="runtime",
         status="ok",
-        message=f"v{ver}",
+        message=with_version(ver, f"Starlette {version_label(starlette)}"),
+        detail={"starlette": starlette},
     )
 
 
@@ -62,7 +96,7 @@ def check_http_server() -> dict[str, Any]:
             name="Gunicorn + UvicornWorker",
             group="runtime",
             status="ok",
-            message=f"v{ver} · {workers} workers",
+            message=with_version(ver, f"{workers} workers"),
         )
     ver = pkg_version("uvicorn")
     reload = os.environ.get("UVICORN_RELOAD", "")
@@ -71,7 +105,7 @@ def check_http_server() -> dict[str, Any]:
         name="Uvicorn",
         group="runtime",
         status="ok",
-        message=f"v{ver}" + (" · reload" if reload else " · dev server"),
+        message=with_version(ver, "reload" if reload else "dev server"),
     )
 
 
@@ -83,7 +117,7 @@ def check_sqlalchemy(pg_ok: bool) -> dict[str, Any]:
 
         pool = engine.pool
         checked_in = getattr(pool, "checkedin", lambda: None)()
-        message = f"v{sqlalchemy.__version__} · async engine"
+        message = with_version(sqlalchemy.__version__, "async engine")
         if checked_in is not None:
             message += f" · pool in {checked_in}"
         status: ComponentStatus = "ok" if pg_ok else "unknown"
@@ -101,7 +135,7 @@ def check_sqlalchemy(pg_ok: bool) -> dict[str, Any]:
             name="SQLAlchemy 2",
             group="persistence",
             status="degraded",
-            message=f"v{sqlalchemy.__version__}",
+            message=with_version(sqlalchemy.__version__),
             detail={"error": str(exc)[:200]},
         )
 
@@ -113,7 +147,7 @@ def check_asyncpg() -> dict[str, Any]:
         name="asyncpg",
         group="persistence",
         status="ok",
-        message=f"v{ver} · PostgreSQL driver",
+        message=with_version(ver, "PostgreSQL driver"),
     )
 
 
@@ -141,7 +175,7 @@ async def check_alembic() -> dict[str, Any]:
                 name="Alembic",
                 group="persistence",
                 status="ok",
-                message=f"v{ver} · at head ({str(head)[:12]})",
+                message=with_version(ver, f"at head ({str(head)[:12]})"),
                 detail={"revision": current, "head": head},
             )
         if not current:
@@ -150,7 +184,7 @@ async def check_alembic() -> dict[str, Any]:
                 name="Alembic",
                 group="persistence",
                 status="degraded",
-                message=f"v{ver} · database not migrated",
+                message=with_version(ver, "database not migrated"),
                 detail={"head": head},
             )
         return _component(
@@ -158,7 +192,7 @@ async def check_alembic() -> dict[str, Any]:
             name="Alembic",
             group="persistence",
             status="degraded",
-            message=f"v{ver} · revision {str(current)[:12]} ≠ head",
+            message=with_version(ver, f"revision {str(current)[:12]} ≠ head"),
             detail={"revision": current, "head": head},
         )
     except Exception as exc:
@@ -168,7 +202,7 @@ async def check_alembic() -> dict[str, Any]:
             name="Alembic",
             group="persistence",
             status="degraded",
-            message=f"v{ver} · could not verify migrations",
+            message=with_version(ver, "could not verify migrations"),
             detail={"error": str(exc)[:200]},
         )
 
@@ -180,7 +214,7 @@ def check_pydantic() -> dict[str, Any]:
         name="Pydantic v2",
         group="persistence",
         status="ok",
-        message=f"v{ver} · schemas & settings",
+        message=with_version(ver, "schemas & settings"),
     )
 
 
@@ -192,13 +226,24 @@ def check_module_registry() -> dict[str, Any]:
         modules = sorted(getattr(registry, "_modules", {}).keys())
         model_count = len(_model_registry)
         bootstrapped = getattr(registry, "_bootstrapped", False)
+        module_versions = {
+            name: desc.manifest.get("version", "?")
+            for name, desc in getattr(registry, "_modules", {}).items()
+        }
+        version_summary = ", ".join(
+            f"{name} v{module_versions[name]}" for name in modules
+        )
         return _component(
             id="module_registry",
             name="Module Registry",
             group="engine",
             status="ok" if bootstrapped else "unknown",
-            message=f"{len(modules)} modules · {model_count} models",
-            detail={"modules": modules, "bootstrapped": bootstrapped},
+            message=f"{len(modules)} modules · {model_count} models · {version_summary}",
+            detail={
+                "modules": modules,
+                "module_versions": module_versions,
+                "bootstrapped": bootstrapped,
+            },
         )
     except Exception as exc:
         return _component(
@@ -291,13 +336,14 @@ def check_event_bus() -> dict[str, Any]:
 
 
 def check_cache(redis_status: ComponentStatus) -> dict[str, Any]:
+    redis_py = pkg_version("redis")
     if redis_status == "skipped":
         return _component(
             id="cache",
             name="Cache",
             group="data",
             status="skipped",
-            message="Requires Redis",
+            message=with_version(redis_py, "requires Redis"),
         )
     if redis_status != "ok":
         return _component(
@@ -305,27 +351,32 @@ def check_cache(redis_status: ComponentStatus) -> dict[str, Any]:
             name="Cache",
             group="data",
             status="degraded",
-            message="Redis backplane unavailable",
+            message=with_version(redis_py, "Redis backplane unavailable"),
         )
     return _component(
         id="cache",
         name="Cache",
         group="data",
         status="ok",
-        message="Redis read-through · RBAC ≤60s · rate limits",
+        message=with_version(redis_py, "read-through · RBAC ≤60s · rate limits"),
     )
 
 
 def check_auth_jwt() -> dict[str, Any]:
     jose = pkg_version("python-jose", module_fallback="jose")
     bcrypt = pkg_version("bcrypt")
+    pyotp = pkg_version("pyotp", module_fallback="pyotp")
     return _component(
         id="auth_jwt",
         name="Auth (JWT + 2FA)",
         group="engine",
         status="ok",
-        message=f"jose v{jose} · bcrypt v{bcrypt}",
-        detail={"totp": pkg_version("pyotp", module_fallback="pyotp")},
+        message=with_version(
+            jose,
+            f"bcrypt {version_label(bcrypt)}",
+            f"pyotp {version_label(pyotp)}",
+        ),
+        detail={"bcrypt": bcrypt, "pyotp": pyotp},
     )
 
 
@@ -336,7 +387,7 @@ def check_prometheus() -> dict[str, Any]:
         name="Prometheus metrics",
         group="engine",
         status="ok",
-        message=f"v{ver} · GET /metrics",
+        message=with_version(ver, "GET /metrics"),
     )
 
 
@@ -347,18 +398,20 @@ def check_celery_lib() -> dict[str, Any]:
         name="Celery 5",
         group="async",
         status="ok",
-        message=f"v{ver} · task library",
+        message=with_version(ver, "task library"),
     )
 
 
 def check_nginx() -> dict[str, Any]:
     if os.environ.get("NGINX_ENABLED", "").lower() in ("1", "true", "yes"):
+        nginx_ver = _probe_nginx_version()
         return _component(
             id="nginx",
             name="nginx",
             group="infra",
             status="ok",
-            message="Reverse proxy · TLS · SSE buffering off",
+            message=with_version(nginx_ver, "reverse proxy · TLS · SSE buffering off"),
+            detail={"version": nginx_ver or None},
         )
     return _component(
         id="nginx",
@@ -369,12 +422,48 @@ def check_nginx() -> dict[str, Any]:
     )
 
 
+def _probe_nginx_version() -> str:
+    import shutil
+    import subprocess
+
+    binary = shutil.which("nginx")
+    if not binary:
+        return "unknown"
+    try:
+        proc = subprocess.run(
+            [binary, "-v"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        raw = (proc.stderr or proc.stdout or "").strip()
+        if "/" in raw:
+            return raw.split("/", 1)[1].strip()
+        return raw or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def check_docker() -> dict[str, Any]:
+    import platform
+
     in_container = os.path.exists("/.dockerenv") or os.environ.get("ENVIRONMENT") == "development"
+    py = platform.python_version()
+    if in_container:
+        return _component(
+            id="docker",
+            name="Docker Compose",
+            group="infra",
+            status="ok",
+            message=with_version(py, "Python container · compose stack"),
+            detail={"python": py, "platform": platform.platform()},
+        )
     return _component(
         id="docker",
         name="Docker Compose",
         group="infra",
-        status="ok" if in_container else "unknown",
-        message="Dev/prod compose stack" if in_container else "Host process (outside container)",
+        status="unknown",
+        message=with_version(py, "host process (outside container)"),
+        detail={"python": py, "platform": platform.platform()},
     )

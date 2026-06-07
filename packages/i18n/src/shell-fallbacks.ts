@@ -1,9 +1,9 @@
 import type { MessageCatalog } from "./core";
 
 /**
- * English labels for shell navigation and the Languages technical page.
- * Fills gaps when the API catalog is stale (e.g. backend not restarted after deploy).
- * Canonical copy lives in backend/modules/base/i18n/en.json — keep in sync when changing nav.
+ * English labels for shell navigation, dashboard, mail, and the Languages page.
+ * Fills gaps when the API catalog is stale (React Query cache, backend not
+ * restarted after en.json edit). Canonical copy: modules/base/i18n/en.json.
  */
 export const SHELL_FALLBACK_EN: MessageCatalog = {
   "nav.dashboard": "Dashboard",
@@ -33,6 +33,18 @@ export const SHELL_FALLBACK_EN: MessageCatalog = {
   "nav.expand": "Expand menu",
   "nav.collapseMenu": "Collapse menu",
   "nav.searchActions": "Search actions",
+  "dashboard.engineReadyPrefix": "Engine ready — install a domain module from",
+  "dashboard.modules": "Modules",
+  "dashboard.engineReadySuffix": "to start building features on JSON views + YAML RBAC.",
+  "dashboard.link.companies": "Companies",
+  "dashboard.link.users": "Users",
+  "dashboard.link.modules": "Modules",
+  "dashboard.open": "Open",
+  "dashboard.aiSection": "AI assistant",
+  "dashboard.askPlaceholder": "Ask about base data or installed modules…",
+  "dashboard.quickLinks": "Quick links",
+  "mail.placeholderHostHint":
+    "This host looks like a placeholder (e.g. smtp.test.example). Replace it with your real SMTP server before testing the connection.",
   "languages.page.title": "UI languages",
   "languages.page.subtitle":
     "Message catalogs are loaded from engine modules at startup. English in the base module is the canonical fallback.",

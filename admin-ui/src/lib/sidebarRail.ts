@@ -1,14 +1,18 @@
 const SIDEBAR_OPEN_KEY = "orbiteus:sidebar-open";
 
+export { SIDEBAR_OPEN_KEY };
+
 export const NAV_WIDTH_COLLAPSED = 56;
 export const NAV_WIDTH_EXPANDED = 240;
 
 export function readSidebarOpen(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined") return true;
   try {
-    return window.localStorage.getItem(SIDEBAR_OPEN_KEY) === "1";
+    const raw = window.localStorage.getItem(SIDEBAR_OPEN_KEY);
+    if (raw === null) return true;
+    return raw === "1";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -21,7 +25,7 @@ export function writeSidebarOpen(open: boolean): void {
   }
 }
 
-/** Sidebar shows labels only when explicitly expanded (toggle button). */
+/** Sidebar shows labels when expanded (240px rail). */
 export function isSidebarExpanded(open: boolean): boolean {
   return open;
 }

@@ -59,7 +59,7 @@ class User(BaseModel):
     recovery_codes_hashed: list[str] = field(default_factory=list)
     last_login: datetime | None = None
     last_login_device: str | None = None
-    language: str = "pl"
+    language: str = "en"
     timezone: str = "Europe/Warsaw"
 
 

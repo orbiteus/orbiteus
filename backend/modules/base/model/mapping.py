@@ -103,7 +103,7 @@ users_table = Table(
     Column("recovery_codes_hashed", JSON, nullable=False, server_default="[]"),
     Column("last_login", DateTime(timezone=True)),
     Column("last_login_device", String(20)),
-    Column("language", String(10), server_default="pl"),
+    Column("language", String(10), server_default="en"),
     Column("timezone", String(50), server_default="Europe/Warsaw"),
 )
 

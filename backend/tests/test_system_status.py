@@ -21,9 +21,11 @@ async def test_system_status_includes_full_engine_stack(client):
     resp = await client.get("/api/base/system-status", headers=headers)
     assert resp.status_code == 200, resp.text
     data = resp.json()
+    assert data.get("version")
     by_id = {c["id"]: c for c in data["components"]}
 
     required = (
+        "orbiteus",
         "python",
         "fastapi",
         "sqlalchemy",
@@ -40,14 +42,18 @@ async def test_system_status_includes_full_engine_stack(client):
     for cid in required:
         assert cid in by_id, f"missing component {cid}"
 
-    assert by_id["sqlalchemy"]["status"] in ("ok", "unknown")
+    assert by_id["orbiteus"]["message"].startswith("v")
+    assert by_id["orbiteus"]["detail"]["version"] == data["version"]
+    assert by_id["fastapi"]["message"].startswith("v")
+    assert "module_versions" in by_id["module_registry"]["detail"]
+    assert by_id["cache"]["message"].startswith("v")
     assert by_id["alembic"]["status"] in ("ok", "degraded")
     assert "modules" in by_id["module_registry"]["detail"] or "modules" in str(
         by_id["module_registry"]["message"]
     )
 
     ids = [c["id"] for c in data["components"]]
-    assert ids.index("python") < ids.index("sqlalchemy") < ids.index("postgresql")
+    assert ids.index("orbiteus") < ids.index("python") < ids.index("sqlalchemy") < ids.index("postgresql")
     assert ids.index("auth_jwt") < ids.index("ai_module_config") < ids.index("ai_tooling")
     assert len(data["components"]) >= len(COMPONENT_ORDER) - 2
 

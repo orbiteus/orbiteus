@@ -94,7 +94,7 @@
 | Mantine 9, Next.js 16 setup | DONE | — | — |
 | AppShellLayout + sidebar | DONE | `components/AppShellLayout.tsx` | i18n cleanup needed |
 | Login + JWT flow | DONE | `app/login/page.tsx` (sign-in form only — welcome moved to `/welcome`); legacy `WELCOME_LS_KEY=true` still flips to embedded layout for developers who want it | — |
-| Welcome landing | DONE | `app/welcome/page.tsx` (vendor-neutral copy, role cards, reference stack, live `/api/base/health` badge); whitelisted in `proxy.ts:PUBLIC_PATHS` | — |
+| Welcome landing | DONE | `app/welcome/page.tsx` (vendor-neutral copy, role cards, platform pillar cards, live `/api/base/health` badge); whitelisted in `proxy.ts:PUBLIC_PATHS` | — |
 | Dynamic catch-all routes | DONE | `app/[module]/[model]/...` | — |
 | ResourceList | DONE | `components/ResourceList.tsx` | column widget rendering MISSING |
 | ResourceForm | DONE | `components/ResourceForm.tsx` | many2one resolution MISSING |

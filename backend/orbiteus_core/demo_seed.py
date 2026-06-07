@@ -284,6 +284,7 @@ async def seed_demo_data(
                 "tenant_id": default_tenant_id,
                 "company_id": hq_id,
                 "company_ids": [str(hq_id)],
+                "language": "en",
             },
         )
 

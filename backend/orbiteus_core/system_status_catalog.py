@@ -7,6 +7,7 @@ from __future__ import annotations
 # UI sort order — keep aligned with pre-prompt stack sections.
 COMPONENT_ORDER: tuple[str, ...] = (
     # Runtime
+    "orbiteus",
     "python",
     "fastapi",
     "http_server",

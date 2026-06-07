@@ -117,7 +117,7 @@ const HIDDEN_MODULES = new Set(["auth", "base"]);
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
   const [opened, { toggle }] = useDisclosure();
   const [aiPanelOpen, { open: openAiPanel, close: closeAiPanel }] = useDisclosure(false);
-  const [navOpen, setNavOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(readSidebarOpen);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => new Set());
   const [drillSectionId, setDrillSectionId] = useState<string | null>(null);
   const dismissedDrillForPath = useRef<string | null>(null);
@@ -129,10 +129,6 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   const uiConfigQuery = useUiConfig(!isPublicRoute);
   const modules = uiConfigQuery.data?.modules ?? [];
   const navLoading = path !== "/login" && path !== "/welcome" && uiConfigQuery.isLoading && !uiConfigQuery.data;
-
-  useEffect(() => {
-    setNavOpen(readSidebarOpen());
-  }, []);
 
   useEffect(() => {
     if (path === "/login" || path === "/welcome") return;
