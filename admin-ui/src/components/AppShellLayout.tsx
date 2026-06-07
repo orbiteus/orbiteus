@@ -20,9 +20,9 @@ import {
   resolveSectionIcon,
 } from "@/lib/sidebarIcons";
 import {
-  buildDefaultExpandedSections,
   findActiveSectionIds,
   hasExpandedSectionStorage,
+  initializeExpandedSectionsIfAbsent,
   isNavItemActive,
   mergeExpandedSectionIds,
   readExpandedSectionIds,
@@ -160,7 +160,12 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
 
   const navSections = useMemo(
     () => [...appSections, ...STATIC_SECTIONS],
-    [appSections],
+    [appSections, STATIC_SECTIONS],
+  );
+
+  const navSectionIdsKey = useMemo(
+    () => navSections.map((section) => section.id).join("|"),
+    [navSections],
   );
 
   const sectionsWithIcons = useMemo((): SidebarSectionWithIcons[] => {
@@ -195,9 +200,11 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   }, []);
 
   useEffect(() => {
-    if (navSections.length === 0 || hasExpandedSectionStorage()) return;
-    setExpandedSections(buildDefaultExpandedSections(navSections.map((s) => s.id)));
-  }, [navSections]);
+    const defaults = initializeExpandedSectionsIfAbsent(
+      navSectionIdsKey ? navSectionIdsKey.split("|") : [],
+    );
+    if (defaults) setExpandedSections(defaults);
+  }, [navSectionIdsKey]);
 
   useEffect(() => {
     const activeIds = findActiveSectionIds(path, navSections);

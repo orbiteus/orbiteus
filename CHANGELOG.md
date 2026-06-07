@@ -14,7 +14,27 @@ versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.1.0] — 2026-05-29
+## [1.1.1] — 2026-05-30
+
+### Fixed
+
+- **Admin dashboard crash after login (React #185).** `AppShellLayout` seeded
+  default sidebar expansion on every `navSections` change without persisting to
+  `localStorage`, causing an infinite update loop on fresh sessions (demo /
+  incognito). Defaults are now written once via
+  `initializeExpandedSectionsIfAbsent()`.
+
+### Changed
+
+- **Demo compose (`docker-compose.demo.yml`):** Postgres image
+  `pgvector/pgvector:pg16` (migrations require `vector`); added `redis` service
+  and `REDIS_URL` for RBAC cache invalidation.
+- **Edge proxy:** unauthenticated `GET /` redirects to `/welcome` (not
+  `/login?next=/`).
+- **Public routes:** login/welcome links use hard navigation
+  (`PublicNavLink` / `PublicNavButton`) to avoid App Router client transitions
+  stalling on public pages.
+
 
 ### Added
 

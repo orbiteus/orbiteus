@@ -1,6 +1,6 @@
 {
   "name": "orbiteus-admin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "license": "MIT",
   "private": true,
   "homepage": "https://orbiteus.com",
@@ -18,7 +18,7 @@
     "codegen:file": "openapi-typescript src/lib/openapi/openapi.json -o src/lib/openapi/schema.ts"
   },
   "dependencies": {
-    "@orbiteus/i18n": "1.1.0",
+    "@orbiteus/i18n": "1.1.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@mantine/core": "^9.1.1",

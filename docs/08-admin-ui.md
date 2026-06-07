@@ -95,7 +95,9 @@ you explicitly pressed Back on that page.
 Each sidebar group is **expandable** when the rail is expanded (Mantine
 `NavLink` with nested children). On first visit every section opens except
 **Technical** (engine tables stay collapsed). Open/closed state is stored in
-`localStorage` (`orbiteus.sidebar.expanded.v3`). The section containing the
+`localStorage` (`orbiteus.sidebar.expanded.v3`); defaults are persisted on
+first seed via `initializeExpandedSectionsIfAbsent()` so re-renders after i18n
+or ui-config load do not re-trigger default expansion. The section containing the
 current route is always forced open on navigation.
 
 Two non-clickable group labels organize the tree:

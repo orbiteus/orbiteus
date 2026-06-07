@@ -40,6 +40,7 @@ import { useT } from "@orbiteus/i18n";
 import { api } from "@/lib/api";
 import { useBranding } from "@/lib/branding";
 import { loginNeedsTotpStep } from "@/lib/loginTotp";
+import { PublicNavLink } from "@/components/PublicNavLink";
 
 const WELCOME_LS_KEY = "orbiteus_show_welcome";
 
@@ -372,9 +373,9 @@ export default function LoginPage() {
               />
             ) : null}
             <Group justify="flex-end">
-              <Anchor size="sm" c="dark" href="/forgot-password">
+              <PublicNavLink size="sm" c="dark" href="/forgot-password">
                 {t("auth.login.forgotPassword")}
-              </Anchor>
+              </PublicNavLink>
             </Group>
             <Button type="submit" loading={loading} fullWidth mt="xs" size="md" color="dark">
               {t("auth.signIn")}
@@ -418,9 +419,9 @@ export default function LoginPage() {
         {signInStepLayout({ showBack: false })}
         <Container fluid px={fluidPx} pb="xl">
           <Text ta="center" size="sm">
-            <Anchor href="/welcome" c="dark" fw={600}>
+            <PublicNavLink href="/welcome" c="dark" fw={600}>
               {t("auth.login.showFullWelcome")}
-            </Anchor>
+            </PublicNavLink>
           </Text>
         </Container>
       </Box>
@@ -683,9 +684,9 @@ export default function LoginPage() {
 
           <Stack gap="xs" align="center" pt="md" w="100%">
             <Group gap="md" justify="center" wrap="wrap">
-              <Anchor href="/login" size="sm" c="dark" fw={600}>
+              <PublicNavLink href="/login" size="sm" c="dark" fw={600}>
                 {t("login.footerWelcome")}
-              </Anchor>
+              </PublicNavLink>
               <Text size="sm" c="dimmed">
                 ·
               </Text>

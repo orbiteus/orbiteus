@@ -18,6 +18,17 @@ export function buildDefaultExpandedSections(sectionIds: string[]): Set<string> 
   return new Set(sectionIds.filter((id) => !SIDEBAR_COLLAPSED_BY_DEFAULT.has(id)));
 }
 
+/**
+ * Seed sidebar expansion once on first authenticated visit.
+ * Persists to localStorage so callers do not re-apply defaults on every navSections change.
+ */
+export function initializeExpandedSectionsIfAbsent(sectionIds: string[]): Set<string> | null {
+  if (sectionIds.length === 0 || hasExpandedSectionStorage()) return null;
+  const defaults = buildDefaultExpandedSections(sectionIds);
+  writeExpandedSectionIds(defaults);
+  return defaults;
+}
+
 export function isNavItemActive(path: string, href: string): boolean {
   if (href === "/") return path === "/";
   return path === href || path.startsWith(`${href}/`);

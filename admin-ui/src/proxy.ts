@@ -28,6 +28,11 @@ export function proxy(req: NextRequest) {
   const token = req.cookies.get("orbiteus_token")?.value;
   if (!token) {
     const url = req.nextUrl.clone();
+    if (pathname === "/") {
+      url.pathname = "/welcome";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);

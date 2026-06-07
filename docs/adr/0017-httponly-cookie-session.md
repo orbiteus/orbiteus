@@ -61,7 +61,8 @@ monorepo root so Turbopack resolves `next` and still picks up this app’s
 
 - Allows `/login`, `/welcome`, `/_next/*`, `/api/*`, `/branding/*`.
 - For every other path, redirects to `/login?next=<path>` if `orbiteus_token`
-  is absent.
+  is absent. **`GET /` without a cookie** redirects to `/welcome` (marketing
+  landing), not `/login?next=/`.
 
 The login page no longer touches `localStorage`. Logout posts to
 `/api/auth/logout` which clears both cookies and revokes the JTI in Redis.

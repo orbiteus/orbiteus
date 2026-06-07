@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   buildDefaultExpandedSections,
   findActiveSectionIds,
+  initializeExpandedSectionsIfAbsent,
   isNavItemActive,
   mergeExpandedSectionIds,
   SIDEBAR_COLLAPSED_BY_DEFAULT,
+  SIDEBAR_EXPANDED_STORAGE_KEY,
   type SidebarNavSectionConfig,
 } from "./sidebarNav";
 
@@ -83,5 +86,25 @@ describe("buildDefaultExpandedSections", () => {
       new Set(["mod:crm", "ai", "settings"]),
     );
     expect(SIDEBAR_COLLAPSED_BY_DEFAULT.has("technical")).toBe(true);
+  });
+});
+
+describe("initializeExpandedSectionsIfAbsent", () => {
+  afterEach(() => {
+    window.localStorage.removeItem(SIDEBAR_EXPANDED_STORAGE_KEY);
+  });
+
+  it("persists defaults once and returns null on subsequent calls", () => {
+    const ids = ["mod:crm", "ai", "settings", "technical"];
+    const first = initializeExpandedSectionsIfAbsent(ids);
+    expect(first).toEqual(new Set(["mod:crm", "ai", "settings"]));
+    expect(window.localStorage.getItem(SIDEBAR_EXPANDED_STORAGE_KEY)).toBeTruthy();
+
+    const second = initializeExpandedSectionsIfAbsent(ids);
+    expect(second).toBeNull();
+  });
+
+  it("returns null when section list is empty", () => {
+    expect(initializeExpandedSectionsIfAbsent([])).toBeNull();
   });
 });

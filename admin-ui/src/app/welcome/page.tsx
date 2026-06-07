@@ -11,7 +11,6 @@
  * trademarks. The headline + subheadline mirror the README.
  */
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   Anchor,
   Badge,
@@ -42,6 +41,7 @@ import {
 } from "@tabler/icons-react";
 import { useT } from "@orbiteus/i18n";
 import { useBranding } from "@/lib/branding";
+import { PublicNavButton } from "@/components/PublicNavButton";
 
 const fluidPx = { base: "md", sm: "xl", lg: "3rem", xl: "4rem" } as const;
 
@@ -167,15 +167,14 @@ export default function WelcomePage() {
               {t("welcome.intro")}
             </Text>
             <Group>
-              <Button
-                component={Link}
+              <PublicNavButton
                 href="/login"
                 rightSection={<IconArrowRight size={18} />}
                 color="dark"
                 size="md"
               >
                 {t("auth.signIn")}
-              </Button>
+              </PublicNavButton>
               <Button
                 component="a"
                 href="https://github.com/orbiteus/orbiteus"

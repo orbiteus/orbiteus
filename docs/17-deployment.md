@@ -113,3 +113,14 @@ The demo on `demo.orbiteus.com` uses `docker-compose.demo.yml` (a thin variant
 of prod with a single replica per service and bootstrap creds shown on the
 welcome page via `NEXT_PUBLIC_DEMO_LOGIN_*` build args). Production deployments
 must NOT pass those build args.
+
+| Service | Image / notes |
+|---|---|
+| `db` | `pgvector/pgvector:pg16` — required for Alembic migrations that enable the `vector` extension |
+| `redis` | `redis:7-alpine` — RBAC cache invalidation and rate limiting (`REDIS_URL=redis://redis:6379/0`) |
+| `backend` | `Dockerfile.prod`; depends on healthy `db` + `redis` |
+| `frontend` | `admin-ui/Dockerfile.prod`; published on host `127.0.0.1:13100` for nginx |
+
+Deploy from a release tag (e.g. `v1.1.1`): `git fetch --tags && git checkout v1.1.1`,
+then `docker compose --env-file .env.demo -f docker-compose.demo.yml up -d --build`.
+

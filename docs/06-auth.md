@@ -52,8 +52,9 @@ backend; non-browser clients keep using `Authorization: Bearer …`. See
   2. `orbiteus_token` cookie.
 - **Edge gate.** `admin-ui/src/proxy.ts` (Next 16 successor of
   `middleware.ts`) redirects every protected route
-  to `/login?next=<path>` when the cookie is missing — eliminates the
-  Flash Of Authenticated Content the previous client-only gate produced.
+  to `/login?next=<path>` when the cookie is missing — except `/`, which
+  redirects to `/welcome` — eliminates the Flash Of Authenticated Content the
+  previous client-only gate produced.
 - **Admin `/api` hop.** `admin-ui/src/app/api/[[...path]]/route.ts` proxies to
   FastAPI (`BACKEND_URL`) so responses keep `Set-Cookie` (plain `next.config`
   rewrites to an external host can drop auth cookies).
