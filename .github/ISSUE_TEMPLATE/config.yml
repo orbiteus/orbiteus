@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/orbiteus/orbiteus/security
+    about: Do NOT open a public issue for security findings. Use GitHub's private vulnerability reporting, per SECURITY.md.
+  - name: Question or discussion
+    url: https://github.com/orbiteus/orbiteus/issues
+    about: For open-ended questions, please open a regular issue and tag it appropriately.
